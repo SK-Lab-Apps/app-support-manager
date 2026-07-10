@@ -302,8 +302,8 @@ export function QueryDashboard({
         />
       </div>
 
-      {/* List */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* List — the only vertical scroller; toolbar and stats stay pinned. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {error ? (
           <div className="flex flex-col items-center gap-3 py-16">
             <p className="text-sm text-secondary">Couldn&apos;t load queries</p>
@@ -326,7 +326,7 @@ export function QueryDashboard({
           <>
             {/* Desktop table */}
             <div className="hidden sm:block">
-              <div className="flex h-8 items-center gap-3 border-b border-border px-4 text-2xs uppercase tracking-wide text-tertiary">
+              <div className="sticky top-0 z-10 flex h-8 items-center gap-3 border-b border-border bg-bg px-4 text-2xs uppercase tracking-wide text-tertiary">
                 <span className="w-2 shrink-0" />
                 <span className="w-[72px] shrink-0">Status</span>
                 <span className="w-[118px] shrink-0">Type</span>
