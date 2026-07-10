@@ -29,12 +29,12 @@ export function ThreadScreen({
   theme: SupportTheme;
   thread: Thread;
   onBack: () => void;
-  /** Resolves true on success. */
-  onSend: (message: string) => Promise<boolean>;
+  /** Resolves null on success, or a user-facing error message. */
+  onSend: (message: string) => Promise<string | null>;
 }) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const resolved = thread.status === 'resolved';
@@ -49,11 +49,11 @@ export function ThreadScreen({
   async function handleSend() {
     if (!valid || sending || resolved) return;
     setSending(true);
-    setFailed(false);
-    const ok = await onSend(trimmed);
+    setFailedMessage(null);
+    const errorMessage = await onSend(trimmed);
     setSending(false);
-    if (ok) setDraft('');
-    else setFailed(true);
+    if (errorMessage === null) setDraft('');
+    else setFailedMessage(errorMessage);
   }
 
   return (
@@ -168,7 +168,7 @@ export function ThreadScreen({
               value={draft}
               onChangeText={(v) => {
                 setDraft(v);
-                setFailed(false);
+                setFailedMessage(null);
               }}
               multiline
               placeholder="Reply"
@@ -205,9 +205,9 @@ export function ThreadScreen({
               >
                 {draft.length}/{USER_MESSAGE_MAX}
               </Text>
-              {failed && (
+              {failedMessage !== null && (
                 <Text style={{ fontSize: 11, color: theme.colors.statusDanger }}>
-                  Couldn&apos;t send — try again
+                  {failedMessage}
                 </Text>
               )}
               <View style={{ marginLeft: 'auto' }}>

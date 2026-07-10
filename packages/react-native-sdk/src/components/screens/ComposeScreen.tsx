@@ -15,12 +15,12 @@ export function ComposeScreen({
   theme: SupportTheme;
   type: QueryType;
   onBack: () => void;
-  /** Resolves true on success. */
-  onSubmit: (message: string) => Promise<boolean>;
+  /** Resolves null on success, or a user-facing error message. */
+  onSubmit: (message: string) => Promise<string | null>;
 }) {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
   const trimmed = message.trim();
@@ -31,11 +31,11 @@ export function ComposeScreen({
   async function handleSubmit() {
     if (!valid || submitting) return;
     setSubmitting(true);
-    setFailed(false);
-    const ok = await onSubmit(trimmed);
+    setFailedMessage(null);
+    const errorMessage = await onSubmit(trimmed);
     setSubmitting(false);
-    if (ok) setSent(true);
-    else setFailed(true);
+    if (errorMessage === null) setSent(true);
+    else setFailedMessage(errorMessage);
   }
 
   if (sent) {
@@ -96,7 +96,7 @@ export function ComposeScreen({
           value={message}
           onChangeText={(v) => {
             setMessage(v);
-            setFailed(false);
+            setFailedMessage(null);
           }}
           multiline
           autoFocus
@@ -143,9 +143,9 @@ export function ComposeScreen({
               At least {USER_MESSAGE_MIN} characters
             </Text>
           )}
-          {failed && (
+          {failedMessage !== null && (
             <Text style={{ fontSize: 11, color: theme.colors.statusDanger }}>
-              Couldn&apos;t send — try again
+              {failedMessage}
             </Text>
           )}
           <View style={{ marginLeft: 'auto' }}>

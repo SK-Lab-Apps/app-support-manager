@@ -150,7 +150,18 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }
 
-  async function handleSubmit(type: QueryType, message: string) {
+  function writeErrorMessage(e: unknown): string {
+    if (e instanceof SupportApiError) {
+      if (e.status === 429) return 'Too many requests — try again later';
+      if (e.offline) return "You're offline — check your connection";
+    }
+    return "Couldn't send — try again";
+  }
+
+  async function handleSubmit(
+    type: QueryType,
+    message: string,
+  ): Promise<string | null> {
     try {
       await submitQuery(config, {
         queryType: type,
@@ -161,13 +172,16 @@ export function SupportButton(props: SupportButtonProps) {
         appVersion: props.user.appVersion,
       });
       void refresh();
-      return true;
-    } catch {
-      return false;
+      return null;
+    } catch (e) {
+      return writeErrorMessage(e);
     }
   }
 
-  async function handleSend(threadId: string, message: string) {
+  async function handleSend(
+    threadId: string,
+    message: string,
+  ): Promise<string | null> {
     try {
       await postMessage(config, {
         queryId: threadId,
@@ -175,9 +189,9 @@ export function SupportButton(props: SupportButtonProps) {
         message,
       });
       await refresh();
-      return true;
-    } catch {
-      return false;
+      return null;
+    } catch (e) {
+      return writeErrorMessage(e);
     }
   }
 
