@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2020"],
+    "noEmit": true,
+    "allowJs": false,
+    "types": []
+  },
+  "include": ["src"],
+  "exclude": ["example", "lib", "node_modules"]
+}

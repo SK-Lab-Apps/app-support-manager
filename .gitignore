@@ -1,0 +1,17 @@
+node_modules/
+dist/
+lib/
+.next/
+out/
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+.DS_Store
+supabase/.temp/
+supabase/.branches/
+.expo/
+.expo-export-test/
+.claude
+supabase/
+README.md

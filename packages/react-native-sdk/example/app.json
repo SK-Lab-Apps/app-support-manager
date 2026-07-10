@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Support SDK Example",
+    "slug": "support-sdk-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    }
+  }
+}
