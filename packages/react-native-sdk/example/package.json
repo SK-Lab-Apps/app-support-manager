@@ -12,6 +12,7 @@
     "@appsupportkit/design-tokens": "file:../../design-tokens",
     "@appsupportkit/support-sdk": "file:..",
     "expo": "~53.0.0",
+    "expo-notifications": "~0.31.5",
     "expo-status-bar": "~2.2.0",
     "react": "19.0.0",
     "react-native": "0.79.5",

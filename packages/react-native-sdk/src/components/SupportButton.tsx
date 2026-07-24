@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, Text, View } from 'react-native';
-import { getThreads, markRead, postMessage, submitQuery, SupportApiError, type ApiConfig } from '../api';
+import {
+  getThreads,
+  getUnreadCount,
+  markRead,
+  postMessage,
+  registerPush,
+  submitQuery,
+  SupportApiError,
+  type ApiConfig,
+} from '../api';
+import { ensurePushPermission, isPushAvailable } from '../push';
 import { resolveTheme } from '../theme';
 import type { QueryType, SupportButtonProps, Thread } from '../types';
 import { validateProps } from '../utils';
@@ -14,6 +24,15 @@ type Screen =
   | { name: 'home' }
   | { name: 'compose'; type: QueryType }
   | { name: 'thread'; threadId: string };
+
+// Poll cadence by context: fast where latency is felt (staring at a thread
+// waiting for a reply), slow when the sheet is closed — and the idle tick
+// uses the count-only endpoint, so it costs ~18 bytes instead of the full
+// thread list.
+const THREAD_POLL_MS = 5_000;
+const SHEET_POLL_MS = 15_000;
+const IDLE_POLL_MS = 60_000;
+const MIN_POLL_MS = 3_000;
 
 /**
  * The single entry point of the SDK: a button with an unread badge that
@@ -69,37 +88,81 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }, [config, props.user.revenuecatId, validationError]);
 
+  /** Badge-only refresh — the cheap endpoint used while idle. */
+  const refreshBadge = useCallback(async () => {
+    if (validationError) return;
+    try {
+      const data = await getUnreadCount(config, props.user.revenuecatId);
+      if (mounted.current) setTotalUnread(data.total_unread);
+    } catch {
+      // Best-effort: the next tick or the next sheet open reconciles.
+    }
+  }, [config, props.user.revenuecatId, validationError]);
+
   // Poll on mount…
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  // …in the background so the badge stays current without opening the
-  // sheet, and whenever the app returns to the foreground.
-  const pollIntervalMs = props.pollIntervalMs ?? 30_000;
+  // …then adapt the cadence to what the user is looking at, and refresh
+  // whenever the app returns to the foreground.
+  const idlePollMs = props.pollIntervalMs ?? IDLE_POLL_MS;
+  const screenName = screen.name;
   useEffect(() => {
-    // Clamp to a sane floor so a typo like `pollIntervalMs={30}` doesn't
-    // hammer the API. 0 (or negative) disables interval polling.
-    const interval =
-      pollIntervalMs > 0
-        ? setInterval(() => void refresh(), Math.max(pollIntervalMs, 5_000))
-        : null;
+    const idle = !sheetOpen;
+    const intervalMs = idle
+      ? idlePollMs
+      : screenName === 'thread'
+        ? THREAD_POLL_MS
+        : SHEET_POLL_MS;
+
+    // While idle only the badge matters, so use the count-only endpoint.
+    const tick = () => void (idle ? refreshBadge() : refresh());
+
+    // Clamped so a typo like `pollIntervalMs={30}` can't hammer the API;
+    // 0 (or negative) disables idle polling entirely.
+    const timer =
+      intervalMs > 0 ? setInterval(tick, Math.max(intervalMs, MIN_POLL_MS)) : null;
 
     const appStateSub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refresh();
+      if (state === 'active') tick();
     });
 
     return () => {
-      if (interval !== null) clearInterval(interval);
+      if (timer !== null) clearInterval(timer);
       appStateSub.remove();
     };
-  }, [pollIntervalMs, refresh]);
+  }, [sheetOpen, screenName, idlePollMs, refresh, refreshBadge]);
+
+  /**
+   * Asks for notification permission the moment the sheet opens, then
+   * reports the outcome (including denials) so the dashboard knows whether
+   * this user is reachable. Deliberately fire-and-forget: nothing in the
+   * support flow waits on it or breaks if it fails.
+   */
+  const syncPushPermission = useCallback(async () => {
+    if (validationError || !isPushAvailable) return;
+    try {
+      const registration = await ensurePushPermission(props.expoProjectId);
+      await registerPush(config, {
+        revenuecatId: props.user.revenuecatId,
+        permissionStatus: registration.status,
+        expoPushToken: registration.token,
+        asked: registration.asked,
+      });
+    } catch {
+      // Push is an enhancement — never surfaced to the user as an error.
+    }
+  }, [config, props.user.revenuecatId, props.expoProjectId, validationError]);
 
   // …and on sheet open.
   function openSheet() {
     setScreen({ name: 'home' });
     setSheetOpen(true);
     void refresh();
+    // The OS prompt appears right as the sheet opens; if the user declines,
+    // everything below carries on exactly as before.
+    void syncPushPermission();
   }
 
   function closeSheet() {

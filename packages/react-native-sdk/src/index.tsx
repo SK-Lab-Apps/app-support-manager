@@ -6,8 +6,10 @@ export {
   type SupportTheme,
 } from './theme';
 export { SupportApiError } from './api';
+export { isPushAvailable } from './push';
 export type {
   MessageSender,
+  PushPermissionStatus,
   QueryStatus,
   QueryType,
   SupportButtonProps,

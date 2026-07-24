@@ -10,10 +10,20 @@ import {
   type FormEvent,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { MessageRow, QueryListRow } from "@/lib/types";
+import { getSupabaseEnv } from "@/lib/supabase/env";
+import type {
+  MessageRow,
+  PushSubscriptionRow,
+  QueryListRow,
+} from "@/lib/types";
 import { absoluteTime, cn, formatDate, relativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PaidTag, StatusIndicator, TypeChip } from "@/components/ui/chips";
+import {
+  PaidTag,
+  PushStatusChip,
+  StatusIndicator,
+  TypeChip,
+} from "@/components/ui/chips";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ADMIN_MAX = 1000;
@@ -48,6 +58,9 @@ export function ThreadPanel({
   // When the end user last opened this thread (their read receipt, written
   // by the mark-read edge function). Powers the "Seen" marker.
   const [userLastReadAt, setUserLastReadAt] = useState<string | null>(null);
+  // Whether this user can be reached by push (null = never reported).
+  const [pushSubscription, setPushSubscription] =
+    useState<PushSubscriptionRow | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -102,12 +115,23 @@ export function ThreadPanel({
     setUserLastReadAt(data?.last_read_at ?? null);
   }, [supabase, row.id]);
 
+  const fetchPushSubscription = useCallback(async () => {
+    const { data } = await supabase
+      .from("push_subscriptions")
+      .select("permission_status, expo_push_token, asked_at")
+      .eq("app_id", row.app_id)
+      .eq("revenuecat_id", row.revenuecat_id)
+      .maybeSingle();
+    setPushSubscription((data as PushSubscriptionRow | null) ?? null);
+  }, [supabase, row.app_id, row.revenuecat_id]);
+
   // Opening a thread marks it read on the admin side.
   useEffect(() => {
     void fetchMessages();
     void fetchUserReceipt();
+    void fetchPushSubscription();
     void markRead();
-  }, [fetchMessages, fetchUserReceipt, markRead]);
+  }, [fetchMessages, fetchUserReceipt, fetchPushSubscription, markRead]);
 
   // Live thread: refetch (and re-mark read) when a message lands here.
   useEffect(() => {
@@ -190,6 +214,33 @@ export function ThreadPanel({
     setDraft("");
     await fetchMessages();
     onChanged();
+    void notifyUser();
+  }
+
+  /**
+   * Best-effort push notification for the reply that was just saved.
+   * Deliberately not awaited: a user who declined notifications, has no
+   * token, or an Expo outage must never affect sending.
+   */
+  async function notifyUser() {
+    try {
+      const { url, anonKey } = getSupabaseEnv();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch(`${url}/functions/v1/send-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anonKey,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ query_id: row.id }),
+      });
+    } catch {
+      // Reply is already committed; delivery is opportunistic.
+    }
   }
 
   async function setStatus(next: "open" | "resolved") {
@@ -265,6 +316,7 @@ export function ThreadPanel({
           <span className="tnum" title={absoluteTime(row.created_at)}>
             {relativeTime(row.created_at)}
           </span>
+          <PushStatusChip subscription={pushSubscription} />
         </div>
       </div>
 

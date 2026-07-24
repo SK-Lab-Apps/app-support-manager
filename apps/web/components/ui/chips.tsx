@@ -1,7 +1,8 @@
-import { Bug, Lightbulb, MessageSquare } from 'lucide-react';
+import { Bell, BellOff, BellRing, Bug, Lightbulb, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   QUERY_TYPE_LABEL,
+  type PushSubscriptionRow,
   type QueryStatus,
   type QueryType,
 } from '@/lib/types';
@@ -64,6 +65,64 @@ export function TypeChip({
     >
       <Icon size={11} strokeWidth={1.5} />
       {QUERY_TYPE_LABEL[type]}
+    </span>
+  );
+}
+
+/**
+ * Whether this user can be reached by push: never prompted, prompted and
+ * declined, or granted. `subscription` is null when the SDK has never
+ * reported a status for them (older client, or push not enabled in the app).
+ */
+export function PushStatusChip({
+  subscription,
+  className,
+}: {
+  subscription: PushSubscriptionRow | null;
+  className?: string;
+}) {
+  const asked = subscription?.asked_at != null;
+  const status = subscription?.permission_status ?? 'undetermined';
+
+  const granted = status === 'granted';
+  const denied = status === 'denied';
+
+  const Icon = granted ? BellRing : denied ? BellOff : Bell;
+  const label = granted
+    ? 'Push on'
+    : denied
+      ? 'Push denied'
+      : asked
+        ? 'Push dismissed'
+        : 'Push not asked';
+
+  // A granted permission with no token means the app couldn't mint one
+  // (e.g. running in Expo Go) — worth distinguishing on hover.
+  const title = granted
+    ? subscription?.expo_push_token
+      ? 'User accepted notifications and is reachable'
+      : 'User accepted notifications, but no push token was registered'
+    : denied
+      ? 'User was asked and declined notifications'
+      : asked
+        ? 'User was asked but has not chosen yet'
+        : 'User has not been asked for notification permission yet';
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-2xs font-medium',
+        granted
+          ? 'bg-status-resolved-bg text-status-resolved'
+          : denied
+            ? 'bg-status-danger-bg text-status-danger'
+            : 'text-tertiary',
+        className,
+      )}
+    >
+      <Icon size={11} strokeWidth={1.5} />
+      {label}
     </span>
   );
 }

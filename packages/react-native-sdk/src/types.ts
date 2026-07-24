@@ -2,6 +2,7 @@ export type QueryType = 'feedback' | 'feature_request' | 'bug_report';
 export type QueryStatus = 'open' | 'resolved';
 export type MessageSender = 'user' | 'admin';
 export type ThemeName = 'dark' | 'light';
+export type PushPermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 export interface SupportUser {
   /** Display name shown to the support team. */
@@ -30,12 +31,22 @@ export interface SupportButtonProps {
   /** Visual theme. Matches the admin dashboard tokens. Default "dark". */
   theme?: ThemeName;
   /**
-   * How often (ms) to re-fetch threads in the background so the unread badge
-   * stays current without opening the sheet. Also refreshes whenever the app
-   * returns to the foreground. Default 30000; set 0 to disable background
-   * polling (mount / sheet-open / foreground refreshes still happen).
+   * Idle poll interval (ms) — how often the unread badge is refreshed while
+   * the sheet is CLOSED, using a lightweight count-only endpoint. Default
+   * 60000; set 0 to disable idle polling (mount / sheet-open / foreground
+   * refreshes still happen).
+   *
+   * While the sheet is open the SDK polls faster on its own: every 15s on
+   * the thread list and every 5s inside a thread, where latency is felt.
    */
   pollIntervalMs?: number;
+  /**
+   * Optional EAS project id, forwarded to expo-notifications when minting a
+   * push token. Only needed if the host app's config doesn't already
+   * provide one. Push is skipped entirely when expo-notifications isn't
+   * installed — it is an optional peer dependency.
+   */
+  expoProjectId?: string;
 }
 
 export interface ThreadMessage {

@@ -1,6 +1,10 @@
 // Thin client for the Supabase Edge Functions. Every call authenticates with
 // the per-app x-api-key header; no Supabase JS client is needed on-device.
-import type { QueryType, ThreadsResponse } from './types';
+import type {
+  PushPermissionStatus,
+  QueryType,
+  ThreadsResponse,
+} from './types';
 
 export interface ApiConfig {
   supabaseUrl: string;
@@ -69,6 +73,42 @@ export function getThreads(
   const params = new URLSearchParams({ revenuecat_id: revenuecatId });
   return request<ThreadsResponse>(config, `get-threads?${params.toString()}`, {
     method: 'GET',
+  });
+}
+
+/**
+ * Badge-only endpoint (~18 bytes) used for idle polling, instead of
+ * re-fetching every thread and message just to check for new replies.
+ */
+export function getUnreadCount(
+  config: ApiConfig,
+  revenuecatId: string,
+): Promise<{ total_unread: number }> {
+  const params = new URLSearchParams({ revenuecat_id: revenuecatId });
+  return request(config, `get-unread-count?${params.toString()}`, {
+    method: 'GET',
+  });
+}
+
+/** Reports the OS notification permission outcome (including denials). */
+export function registerPush(
+  config: ApiConfig,
+  input: {
+    revenuecatId: string;
+    permissionStatus: PushPermissionStatus;
+    expoPushToken: string | null;
+    asked: boolean;
+  },
+): Promise<{ ok: boolean }> {
+  return request(config, 'register-push', {
+    method: 'POST',
+    body: JSON.stringify({
+      app_name: config.appName,
+      revenuecat_id: input.revenuecatId,
+      permission_status: input.permissionStatus,
+      expo_push_token: input.expoPushToken,
+      asked: input.asked,
+    }),
   });
 }
 
