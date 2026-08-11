@@ -145,43 +145,101 @@ export function CheckIcon({ color, size = 16 }: { color: string; size?: number }
   );
 }
 
-/** The chat-bubble mark on the floating support button. */
-export function BubbleMark({ color, size = 20 }: { color: string; size?: number }) {
+/** Send arrow: a stem plus a chevron head, both centered on the same axis. */
+export function ArrowUpIcon({ color, size = 16 }: { color: string; size?: number }) {
+  const stroke = STROKE + 0.4;
+  const head = size * 0.44;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          width: stroke,
+          height: size * 0.66,
+          borderRadius: stroke,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          // Rotating a square by 45° lifts its apex by ~0.207 × side, so
+          // offset by that to land the point on top of the stem.
+          top: size * 0.17 + head * 0.207,
+          width: head,
+          height: head,
+          borderTopWidth: stroke,
+          borderLeftWidth: stroke,
+          borderTopLeftRadius: stroke,
+          borderColor: color,
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+    </View>
+  );
+}
+
+/**
+ * The chat-bubble mark on the launcher button: a filled bubble with the
+ * dots knocked out in the button's own fill color. Solid shapes read far
+ * better than 1.5px strokes at launcher size and on top of a color fill.
+ */
+export function ChatBubbleMark({
+  color,
+  dotColor,
+  size = 24,
+}: {
+  color: string;
+  /** The surface behind the mark — the dots are punched out in this color. */
+  dotColor: string;
+  size?: number;
+}) {
+  const bubbleHeight = size * 0.82;
   const dot: ViewStyle = {
-    width: size * 0.12,
-    height: size * 0.12,
+    width: size * 0.13,
+    height: size * 0.13,
     borderRadius: size,
-    backgroundColor: color,
+    backgroundColor: dotColor,
   };
   return (
-    <View style={{ alignItems: 'flex-start' }}>
+    <View style={{ width: size, height: size, justifyContent: 'flex-start' }}>
       <View
         style={{
           width: size,
-          height: size * 0.78,
-          borderWidth: STROKE + 0.25,
-          borderColor: color,
-          borderRadius: size * 0.28,
+          height: bubbleHeight,
+          borderRadius: size * 0.33,
+          backgroundColor: color,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: size * 0.1,
+          gap: size * 0.115,
         }}
       >
         <View style={dot} />
         <View style={dot} />
         <View style={dot} />
       </View>
+      {/* Tail, drawn as a border triangle so it needs no svg. */}
       <View
         style={{
-          width: size * 0.22,
-          height: size * 0.22,
-          borderLeftWidth: STROKE + 0.25,
-          borderBottomWidth: STROKE + 0.25,
-          borderColor: color,
-          marginLeft: size * 0.18,
-          marginTop: -STROKE,
-          transform: [{ skewX: '-12deg' }],
+          position: 'absolute',
+          left: size * 0.22,
+          top: bubbleHeight - 1,
+          width: 0,
+          height: 0,
+          borderLeftWidth: size * 0.09,
+          borderRightWidth: size * 0.16,
+          borderTopWidth: size * 0.2,
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          borderTopColor: color,
         }}
       />
     </View>

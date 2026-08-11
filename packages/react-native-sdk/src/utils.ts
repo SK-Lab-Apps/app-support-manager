@@ -24,6 +24,39 @@ export function formatDate(iso: string): string {
   });
 }
 
+/** "14:32" in the device's locale — shown under a group of messages. */
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function isSameDay(a: string, b: string): boolean {
+  const first = new Date(a);
+  const second = new Date(b);
+  return (
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
+  );
+}
+
+/** Date separator label: Today / Yesterday / "Mon, 5 Jan". */
+export function dayLabel(iso: string): string {
+  const now = new Date();
+  if (isSameDay(iso, now.toISOString())) return 'Today';
+  const yesterday = new Date(now.getTime() - 86_400_000);
+  if (isSameDay(iso, yesterday.toISOString())) return 'Yesterday';
+  const date = new Date(iso);
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  });
+}
+
 /** Dev-mode prop validation with actionable messages. */
 export function validateProps(props: {
   appName?: unknown;

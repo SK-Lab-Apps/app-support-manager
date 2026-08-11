@@ -1,10 +1,77 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import type { SupportTheme } from '../../theme';
 import type { QueryType } from '../../types';
 import { QUERY_TYPE_LABEL, USER_MESSAGE_MAX, USER_MESSAGE_MIN } from '../../types';
 import { CheckIcon, Chevron } from '../icons';
-import { PressableRow, PrimaryButton, textStyles } from '../primitives';
+import {
+  IconButton,
+  PrimaryButton,
+  textStyles,
+  TypeGlyph,
+} from '../primitives';
+
+const PROMPT: Record<QueryType, string> = {
+  feedback: 'What should we know?',
+  feature_request: 'What would you like to see?',
+  bug_report: 'What happened, and what did you expect?',
+};
+
+const SUBTITLE: Record<QueryType, string> = {
+  feedback: 'Good or bad — it goes straight to the team.',
+  feature_request: 'Tell us what you are trying to do.',
+  bug_report: 'Steps, screen, and what you expected all help.',
+};
+
+/** Scales in once on success — the only celebratory motion in the SDK. */
+function SentMark({ theme }: { theme: SupportTheme }) {
+  const scale = useRef(new Animated.Value(0.6)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scale, opacity]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: theme.colors.statusResolvedBg,
+        borderWidth: 1,
+        borderColor: theme.colors.statusResolved,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity,
+        transform: [{ scale }],
+      }}
+    >
+      <CheckIcon color={theme.colors.statusResolved} size={20} />
+    </Animated.View>
+  );
+}
 
 export function ComposeScreen({
   theme,
@@ -27,6 +94,7 @@ export function ComposeScreen({
   const valid =
     trimmed.length >= USER_MESSAGE_MIN && trimmed.length <= USER_MESSAGE_MAX;
   const overLimit = message.length > USER_MESSAGE_MAX;
+  const tooShort = trimmed.length > 0 && trimmed.length < USER_MESSAGE_MIN;
 
   async function handleSubmit() {
     if (!valid || submitting) return;
@@ -40,25 +108,23 @@ export function ComposeScreen({
 
   if (sent) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: theme.colors.statusResolved,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <CheckIcon color={theme.colors.statusResolved} size={14} />
-        </View>
-        <Text style={textStyles.body(theme)}>Sent</Text>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          paddingHorizontal: 32,
+          paddingBottom: 40,
+        }}
+      >
+        <SentMark theme={theme} />
+        <Text style={textStyles.title(theme)}>Sent</Text>
         <Text style={[textStyles.secondary(theme), { textAlign: 'center' }]}>
-          We&apos;ll reply here. You&apos;ll see the thread under Open.
+          We&apos;ll reply right here. You&apos;ll find the conversation under
+          Open, and the button shows a badge when we answer.
         </Text>
-        <View style={{ marginTop: 8 }}>
+        <View style={{ marginTop: 6 }}>
           <PrimaryButton label="Done" onPress={onBack} theme={theme} />
         </View>
       </View>
@@ -70,25 +136,29 @@ export function ComposeScreen({
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Header: back + read-only chosen type */}
+      {/* Header: back + the chosen type */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 8,
+          gap: 10,
           paddingHorizontal: 12,
-          paddingBottom: 12,
+          paddingBottom: 14,
         }}
       >
-        <PressableRow
+        <IconButton
           onPress={onBack}
           theme={theme}
-          accessibilityLabel="Back"
-          style={{ padding: 6, borderRadius: theme.radii.control }}
+          accessibilityLabel="Back to conversations"
+          size={32}
         >
           <Chevron color={theme.colors.textSecondary} direction="left" size={12} />
-        </PressableRow>
-        <Text style={textStyles.title(theme)}>{QUERY_TYPE_LABEL[type]}</Text>
+        </IconButton>
+        <TypeGlyph type={type} theme={theme} size={32} />
+        <View style={{ flex: 1, gap: 1 }}>
+          <Text style={textStyles.heading(theme)}>{QUERY_TYPE_LABEL[type]}</Text>
+          <Text style={textStyles.meta(theme)}>{SUBTITLE[type]}</Text>
+        </View>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: 16 }}>
@@ -100,62 +170,62 @@ export function ComposeScreen({
           }}
           multiline
           autoFocus
-          placeholder={
-            type === 'bug_report'
-              ? 'What happened, and what did you expect?'
-              : type === 'feature_request'
-                ? 'What would you like to see?'
-                : 'What should we know?'
-          }
+          editable={!submitting}
+          placeholder={PROMPT[type]}
           placeholderTextColor={theme.colors.textTertiary}
           style={{
-            minHeight: 120,
-            maxHeight: 220,
+            minHeight: 140,
+            maxHeight: 240,
             borderWidth: 1,
             borderColor: theme.colors.border,
-            borderRadius: theme.radii.control,
+            borderRadius: theme.radii.card,
             backgroundColor: theme.colors.surface,
             color: theme.colors.textPrimary,
-            fontSize: 14,
-            lineHeight: 20,
-            padding: 12,
+            fontSize: 15,
+            lineHeight: 21,
+            padding: 14,
             textAlignVertical: 'top',
           }}
         />
+
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            marginTop: 8,
-            gap: 12,
+            gap: 10,
+            paddingTop: 10,
+            paddingHorizontal: 2,
+            minHeight: 20,
           }}
         >
+          {failedMessage !== null ? (
+            <Text style={{ fontSize: 12, color: theme.colors.statusDanger }}>
+              {failedMessage}
+            </Text>
+          ) : tooShort ? (
+            <Text style={textStyles.meta(theme)}>
+              At least {USER_MESSAGE_MIN} characters
+            </Text>
+          ) : null}
           <Text
             style={[
               textStyles.meta(theme),
+              { marginLeft: 'auto' },
               overLimit && { color: theme.colors.statusDanger },
             ]}
           >
             {message.length}/{USER_MESSAGE_MAX}
           </Text>
-          {trimmed.length > 0 && trimmed.length < USER_MESSAGE_MIN && (
-            <Text style={textStyles.meta(theme)}>
-              At least {USER_MESSAGE_MIN} characters
-            </Text>
-          )}
-          {failedMessage !== null && (
-            <Text style={{ fontSize: 11, color: theme.colors.statusDanger }}>
-              {failedMessage}
-            </Text>
-          )}
-          <View style={{ marginLeft: 'auto' }}>
-            <PrimaryButton
-              label={submitting ? 'Sending…' : 'Send'}
-              onPress={handleSubmit}
-              disabled={!valid || submitting}
-              theme={theme}
-            />
-          </View>
+        </View>
+
+        <View style={{ paddingTop: 12 }}>
+          <PrimaryButton
+            label={submitting ? 'Sending…' : 'Send'}
+            onPress={handleSubmit}
+            disabled={!valid || submitting}
+            theme={theme}
+            fullWidth
+          />
         </View>
       </View>
     </KeyboardAvoidingView>

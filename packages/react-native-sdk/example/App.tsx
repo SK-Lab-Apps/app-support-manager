@@ -45,18 +45,6 @@ export default function App() {
               {theme === "dark" ? "Light" : "Dark"}
             </Text>
           </Pressable>
-          <SupportButton
-            appName="Habitloop"
-            apiKey={API_KEY}
-            supabaseUrl={SUPABASE_URL}
-            user={{
-              name: "Maya Okafor",
-              isPaid: true,
-              revenuecatId: "rc_anon_8f31bd2c",
-              appVersion: "2.4.1",
-            }}
-            theme={theme}
-          />
         </View>
       </View>
 
@@ -64,10 +52,27 @@ export default function App() {
         <Text
           style={{ color: colors.textSecondary, fontSize: 14, lineHeight: 20 }}
         >
-          Host app content. Tap the support button above — the bottom sheet,
-          threads, and unread badge come from @appsupportkit/support-sdk.
+          Host app content. Tap the support button — the bottom sheet, threads,
+          and unread badge come from @appsupportkit/support-sdk.
         </Text>
       </View>
+
+      {/* The launcher positions itself with `style`; here, a floating action
+          button in the corner. Use variant="soft" or "minimal" to place it
+          in a header or toolbar instead. */}
+      <SupportButton
+        appName="Habitloop"
+        apiKey={API_KEY}
+        supabaseUrl={SUPABASE_URL}
+        user={{
+          name: "Maya Okafor",
+          isPaid: true,
+          revenuecatId: "rc_anon_8f31bd2c",
+          appVersion: "2.4.1",
+        }}
+        theme={theme}
+        style={styles.launcher}
+      />
     </SafeAreaView>
   );
 }
@@ -83,4 +88,5 @@ const styles = StyleSheet.create({
   },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   body: { paddingHorizontal: 20, paddingTop: 8 },
+  launcher: { position: "absolute", right: 20, bottom: 32 },
 });

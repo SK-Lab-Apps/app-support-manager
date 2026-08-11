@@ -1,8 +1,18 @@
+import type { StyleProp, ViewStyle } from 'react-native';
+
 export type QueryType = 'feedback' | 'feature_request' | 'bug_report';
 export type QueryStatus = 'open' | 'resolved';
 export type MessageSender = 'user' | 'admin';
 export type ThemeName = 'dark' | 'light';
 export type PushPermissionStatus = 'undetermined' | 'granted' | 'denied';
+
+/**
+ * How the launcher renders:
+ *   solid   — accent fill, elevated. The floating action button.
+ *   soft    — app surface + hairline border. Sits in a header or toolbar.
+ *   minimal — bare mark, no fill or border. Sits in a nav bar.
+ */
+export type LauncherVariant = 'solid' | 'soft' | 'minimal';
 
 export interface SupportUser {
   /** Display name shown to the support team. */
@@ -30,6 +40,20 @@ export interface SupportButtonProps {
   supabaseUrl: string;
   /** Visual theme. Matches the admin dashboard tokens. Default "dark". */
   theme?: ThemeName;
+  /**
+   * Brand color (hex, e.g. "#FF5A1F") replacing the default accent across
+   * the launcher, buttons, and the user's own message bubbles. The pressed
+   * shade, the 12% wash, and a legible foreground are derived from it.
+   */
+  accentColor?: string;
+  /** Launcher style. Default "solid" — the floating action button. */
+  variant?: LauncherVariant;
+  /** Launcher diameter in px (height when `label` is set). Default 52. */
+  size?: number;
+  /** Renders the launcher as a pill with this text beside the mark. */
+  label?: string;
+  /** Style applied to the launcher — position it, add margins, etc. */
+  style?: StyleProp<ViewStyle>;
   /**
    * Idle poll interval (ms) — how often the unread badge is refreshed while
    * the sheet is CLOSED, using a lightweight count-only endpoint. Default

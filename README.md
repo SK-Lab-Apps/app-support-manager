@@ -108,7 +108,33 @@ import { SupportButton } from '@appsupportkit/support-sdk';
 
 Peer dependencies: `react`, `react-native`, `react-native-safe-area-context`. The bottom sheet is built on the core `Modal`/`Animated` APIs — no gesture-handler/reanimated native dependencies to install.
 
-The button shows an unread badge (admin replies newer than the user's read receipt), and opens a sheet with: new-query actions, the user's open/resolved threads, a composer with a live 10–300 character counter, and read-only resolved threads showing who resolved them.
+The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens a sheet with: new-query actions, the user's open and resolved conversations, a composer with a live 10–300 character counter, and read-only resolved threads showing who resolved them.
+
+### Launcher appearance
+
+The launcher is the only part of the SDK that lives inside the host app's own UI, so it takes styling props. All optional:
+
+| Prop | Default | What it does |
+| --- | --- | --- |
+| `variant` | `"solid"` | `solid` — accent fill, elevated: the floating action button. `soft` — surface fill + hairline border, for a header. `minimal` — bare mark, for a nav bar. |
+| `size` | `52` | Diameter in px (height when `label` is set). |
+| `label` | — | Renders a pill with this text beside the mark instead of a circle. |
+| `accentColor` | design-token indigo | Brand color (hex). The pressed shade, the 12% wash behind chips and own-message bubbles, and a legible foreground are all derived from it. |
+| `style` | — | Applied to the launcher: position it, add margins. `{ position: 'absolute', right: 20, bottom: 32 }` gives the usual corner FAB. |
+
+The badge caps at `99+`, and pulses twice — not forever — when a new reply arrives.
+
+### Unread and read receipts
+
+The server counts unread as "admin messages newer than the user's read receipt", which is authoritative but always slightly behind the device. The SDK therefore keeps a per-thread watermark: the `created_at` of the newest reply the user has actually seen (a server timestamp, so the device clock is never part of the comparison). Displayed unread is the stricter of the two counts, which is right in both directions — read here but the receipt hasn't landed yet, or read on another device.
+
+That carries three rules worth knowing when reading `useSupportThreads.ts`:
+
+- Responses apply in issue order, so a slow poll can't overwrite a newer one.
+- `get-unread-count` returns a bare number that can't be reconciled against local reads, so its answer is dropped if a read happened while it was in flight, and it is skipped entirely while any receipt is unconfirmed — the full payload is polled instead, because that one *can* be reconciled.
+- Failed `mark-read` calls are retried with backoff rather than swallowed; until one lands, the watermark holds the UI correct.
+
+Replies that arrive while the user is sitting in a thread are marked read on arrival, so the badge never climbs while they are reading.
 
 ### Refresh cadence
 
@@ -119,8 +145,9 @@ Polling adapts to what the user is looking at, so latency is low where it's felt
 | Inside a thread | 5s | `get-threads` |
 | Sheet open (list) | 15s | `get-threads` |
 | Sheet closed (idle) | `pollIntervalMs`, default 60s | `get-unread-count` (~18 bytes) |
+| Sheet closed, receipt unconfirmed | as above | `get-threads` (until the receipt lands) |
 
-It also refreshes on mount and whenever the app returns to the foreground. Set `pollIntervalMs={0}` to disable idle polling.
+It also refreshes on mount, whenever the sheet opens, and whenever the app returns to the foreground. Set `pollIntervalMs={0}` to disable idle polling.
 
 ### Push notifications (optional)
 
@@ -142,7 +169,7 @@ npm install
 npm run ios      # or: npm run android / npm start
 ```
 
-Set `SUPABASE_URL` in `App.tsx` to your project URL. If you ran the demo seed on that project, the bundled demo key and user work as-is and submitted queries appear live in the dashboard.
+Set `SUPABASE_URL` in `App.tsx` to your project URL. The bundled demo key and user only work if you ran `supabase/seed.sql` on **that** project — otherwise every call comes back `401 Invalid API key` and the sheet shows "Support is unavailable right now" (with the reason logged to the console in dev). Register the app in the dashboard and paste its key into `App.tsx` if you'd rather not seed.
 
 ### Publishing the SDK
 

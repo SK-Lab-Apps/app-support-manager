@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Text, View } from 'react-native';
 import {
-  getThreads,
-  getUnreadCount,
-  markRead,
   postMessage,
   registerPush,
   submitQuery,
@@ -13,9 +10,10 @@ import {
 import { ensurePushPermission, isPushAvailable } from '../push';
 import { resolveTheme } from '../theme';
 import type { QueryType, SupportButtonProps, Thread } from '../types';
+import { IDLE_POLL_MS, useSupportThreads } from '../useSupportThreads';
 import { validateProps } from '../utils';
 import { BottomSheet } from './BottomSheet';
-import { BubbleMark } from './icons';
+import { LauncherButton } from './LauncherButton';
 import { ComposeScreen } from './screens/ComposeScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { ThreadScreen } from './screens/ThreadScreen';
@@ -25,23 +23,17 @@ type Screen =
   | { name: 'compose'; type: QueryType }
   | { name: 'thread'; threadId: string };
 
-// Poll cadence by context: fast where latency is felt (staring at a thread
-// waiting for a reply), slow when the sheet is closed — and the idle tick
-// uses the count-only endpoint, so it costs ~18 bytes instead of the full
-// thread list.
-const THREAD_POLL_MS = 5_000;
-const SHEET_POLL_MS = 15_000;
-const IDLE_POLL_MS = 60_000;
-const MIN_POLL_MS = 3_000;
-
 /**
- * The single entry point of the SDK: a button with an unread badge that
- * opens the support bottom sheet. Polls get-threads on mount and whenever
- * the sheet opens (no websockets in v1).
+ * The single entry point of the SDK: a launcher with an unread badge that
+ * opens the support bottom sheet. Threads, polling, and read receipts are
+ * handled by useSupportThreads.
  */
 export function SupportButton(props: SupportButtonProps) {
   const validationError = validateProps(props);
-  const theme = resolveTheme(props.theme);
+  const theme = useMemo(
+    () => resolveTheme(props.theme, props.accentColor),
+    [props.theme, props.accentColor],
+  );
 
   const config: ApiConfig = useMemo(
     () => ({
@@ -54,85 +46,16 @@ export function SupportButton(props: SupportButtonProps) {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
-  const [threads, setThreads] = useState<Thread[] | null>(null);
-  const [totalUnread, setTotalUnread] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const mounted = useRef(true);
 
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
-  const refresh = useCallback(async () => {
-    if (validationError) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getThreads(config, props.user.revenuecatId);
-      if (!mounted.current) return;
-      setThreads(data.threads);
-      setTotalUnread(data.total_unread);
-    } catch (e) {
-      if (!mounted.current) return;
-      setError(
-        e instanceof SupportApiError && e.offline
-          ? "You're offline — check your connection"
-          : "Couldn't load threads",
-      );
-    } finally {
-      if (mounted.current) setLoading(false);
-    }
-  }, [config, props.user.revenuecatId, validationError]);
-
-  /** Badge-only refresh — the cheap endpoint used while idle. */
-  const refreshBadge = useCallback(async () => {
-    if (validationError) return;
-    try {
-      const data = await getUnreadCount(config, props.user.revenuecatId);
-      if (mounted.current) setTotalUnread(data.total_unread);
-    } catch {
-      // Best-effort: the next tick or the next sheet open reconciles.
-    }
-  }, [config, props.user.revenuecatId, validationError]);
-
-  // Poll on mount…
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  // …then adapt the cadence to what the user is looking at, and refresh
-  // whenever the app returns to the foreground.
-  const idlePollMs = props.pollIntervalMs ?? IDLE_POLL_MS;
-  const screenName = screen.name;
-  useEffect(() => {
-    const idle = !sheetOpen;
-    const intervalMs = idle
-      ? idlePollMs
-      : screenName === 'thread'
-        ? THREAD_POLL_MS
-        : SHEET_POLL_MS;
-
-    // While idle only the badge matters, so use the count-only endpoint.
-    const tick = () => void (idle ? refreshBadge() : refresh());
-
-    // Clamped so a typo like `pollIntervalMs={30}` can't hammer the API;
-    // 0 (or negative) disables idle polling entirely.
-    const timer =
-      intervalMs > 0 ? setInterval(tick, Math.max(intervalMs, MIN_POLL_MS)) : null;
-
-    const appStateSub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') tick();
+  const { threads, totalUnread, loading, refreshing, error, refresh, reload } =
+    useSupportThreads({
+      config,
+      revenuecatId: props.user.revenuecatId,
+      enabled: validationError === null,
+      sheetOpen,
+      activeThreadId: screen.name === 'thread' ? screen.threadId : null,
+      idlePollMs: props.pollIntervalMs ?? IDLE_POLL_MS,
     });
-
-    return () => {
-      if (timer !== null) clearInterval(timer);
-      appStateSub.remove();
-    };
-  }, [sheetOpen, screenName, idlePollMs, refresh, refreshBadge]);
 
   /**
    * Asks for notification permission the moment the sheet opens, then
@@ -141,7 +64,7 @@ export function SupportButton(props: SupportButtonProps) {
    * support flow waits on it or breaks if it fails.
    */
   const syncPushPermission = useCallback(async () => {
-    if (validationError || !isPushAvailable) return;
+    if (validationError !== null || !isPushAvailable) return;
     try {
       const registration = await ensurePushPermission(props.expoProjectId);
       await registerPush(config, {
@@ -155,11 +78,9 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }, [config, props.user.revenuecatId, props.expoProjectId, validationError]);
 
-  // …and on sheet open.
   function openSheet() {
     setScreen({ name: 'home' });
     setSheetOpen(true);
-    void refresh();
     // The OS prompt appears right as the sheet opens; if the user declines,
     // everything below carries on exactly as before.
     void syncPushPermission();
@@ -170,7 +91,7 @@ export function SupportButton(props: SupportButtonProps) {
     setScreen({ name: 'home' });
   }
 
-  if (validationError) {
+  if (validationError !== null) {
     // Dev-mode: loud and actionable. Production: render nothing rather than
     // a broken button.
     if (__DEV__) {
@@ -191,26 +112,6 @@ export function SupportButton(props: SupportButtonProps) {
       );
     }
     return null;
-  }
-
-  function openThread(thread: Thread) {
-    setScreen({ name: 'thread', threadId: thread.id });
-    if (thread.unread_count > 0) {
-      // Optimistically clear the badge; persist via mark-read.
-      setThreads(
-        (prev) =>
-          prev?.map((t) =>
-            t.id === thread.id ? { ...t, unread_count: 0 } : t,
-          ) ?? null,
-      );
-      setTotalUnread((n) => Math.max(0, n - thread.unread_count));
-      void markRead(config, {
-        queryId: thread.id,
-        revenuecatId: props.user.revenuecatId,
-      }).catch(() => {
-        // Non-fatal: the next get-threads reconciles the badge.
-      });
-    }
   }
 
   function writeErrorMessage(e: unknown): string {
@@ -234,7 +135,7 @@ export function SupportButton(props: SupportButtonProps) {
         revenuecatId: props.user.revenuecatId,
         appVersion: props.user.appVersion,
       });
-      void refresh();
+      void reload();
       return null;
     } catch (e) {
       return writeErrorMessage(e);
@@ -251,84 +152,48 @@ export function SupportButton(props: SupportButtonProps) {
         revenuecatId: props.user.revenuecatId,
         message,
       });
-      await refresh();
+      await reload();
       return null;
     } catch (e) {
       return writeErrorMessage(e);
     }
   }
 
-  const activeThread =
+  const activeThread: Thread | null =
     screen.name === 'thread'
-      ? (threads ?? []).find((t) => t.id === screen.threadId) ?? null
+      ? ((threads ?? []).find((t) => t.id === screen.threadId) ?? null)
       : null;
+
+  const home = (
+    <HomeScreen
+      theme={theme}
+      threads={threads}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={refresh}
+      onCompose={(type) => setScreen({ name: 'compose', type })}
+      onOpenThread={(thread) =>
+        setScreen({ name: 'thread', threadId: thread.id })
+      }
+      onClose={closeSheet}
+    />
+  );
 
   return (
     <>
-      <Pressable
+      <LauncherButton
+        theme={theme}
+        unread={totalUnread}
+        variant={props.variant}
+        size={props.size}
+        label={props.label}
+        style={props.style}
         onPress={openSheet}
-        accessibilityRole="button"
-        accessibilityLabel={
-          totalUnread > 0
-            ? `Support, ${totalUnread} unread ${totalUnread === 1 ? 'reply' : 'replies'}`
-            : 'Support'
-        }
-        style={({ pressed }) => ({
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-          backgroundColor: pressed
-            ? theme.colors.surfaceHover
-            : theme.colors.surface,
-          alignItems: 'center',
-          justifyContent: 'center',
-        })}
-      >
-        <BubbleMark color={theme.colors.textPrimary} size={18} />
-        {totalUnread > 0 && (
-          <View
-            style={{
-              position: 'absolute',
-              top: -3,
-              right: -3,
-              minWidth: 16,
-              height: 16,
-              borderRadius: 8,
-              paddingHorizontal: 4,
-              backgroundColor: theme.colors.accent,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontWeight: '600',
-                color: theme.colors.accentForeground,
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {totalUnread > 9 ? '9+' : totalUnread}
-            </Text>
-          </View>
-        )}
-      </Pressable>
+      />
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet} theme={theme}>
-        {screen.name === 'home' && (
-          <HomeScreen
-            theme={theme}
-            threads={threads}
-            loading={loading}
-            error={error}
-            onRetry={() => void refresh()}
-            onCompose={(type) => setScreen({ name: 'compose', type })}
-            onOpenThread={openThread}
-            onClose={closeSheet}
-          />
-        )}
+        {screen.name === 'home' && home}
         {screen.name === 'compose' && (
           <ComposeScreen
             theme={theme}
@@ -338,7 +203,7 @@ export function SupportButton(props: SupportButtonProps) {
           />
         )}
         {screen.name === 'thread' &&
-          (activeThread ? (
+          (activeThread !== null ? (
             <ThreadScreen
               theme={theme}
               thread={activeThread}
@@ -346,16 +211,7 @@ export function SupportButton(props: SupportButtonProps) {
               onSend={(message) => handleSend(activeThread.id, message)}
             />
           ) : (
-            <HomeScreen
-              theme={theme}
-              threads={threads}
-              loading={loading}
-              error={error}
-              onRetry={() => void refresh()}
-              onCompose={(type) => setScreen({ name: 'compose', type })}
-              onOpenThread={openThread}
-              onClose={closeSheet}
-            />
+            home
           ))}
       </BottomSheet>
     </>

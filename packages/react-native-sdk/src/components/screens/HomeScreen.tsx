@@ -1,4 +1,4 @@
-import { ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import type { SupportTheme } from '../../theme';
 import type { QueryType, Thread } from '../../types';
 import { QUERY_TYPE_LABEL } from '../../types';
@@ -7,75 +7,139 @@ import { Chevron, CloseIcon } from '../icons';
 import {
   EmptyState,
   ErrorState,
+  IconButton,
   PressableRow,
+  SectionLabel,
   SkeletonBlock,
   textStyles,
-  typeColor,
-  typeIcon,
+  TypeGlyph,
+  UnreadPill,
 } from '../primitives';
 
 const COMPOSE_TYPES: QueryType[] = ['feedback', 'feature_request', 'bug_report'];
+
+const COMPOSE_HINT: Record<QueryType, string> = {
+  feedback: 'Tell us what you think',
+  feature_request: 'Suggest an improvement',
+  bug_report: "Something isn't working",
+};
 
 function ThreadRow({
   thread,
   theme,
   onPress,
+  last,
 }: {
   thread: Thread;
   theme: SupportTheme;
   onPress: () => void;
+  last: boolean;
 }) {
-  const preview = thread.last_message?.body ?? '';
+  const unread = thread.unread_count > 0;
+  const preview = thread.last_message?.body ?? 'No messages yet';
+  const at = thread.last_message?.created_at ?? thread.created_at;
+
   return (
     <PressableRow
       onPress={onPress}
       theme={theme}
-      accessibilityLabel={`${QUERY_TYPE_LABEL[thread.type]} thread`}
+      accessibilityLabel={
+        unread
+          ? `${QUERY_TYPE_LABEL[thread.type]} thread, ${thread.unread_count} unread`
+          : `${QUERY_TYPE_LABEL[thread.type]} thread`
+      }
       style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
         paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
+        paddingVertical: 13,
+        borderBottomWidth: last ? 0 : 1,
         borderBottomColor: theme.colors.border,
+        opacity: thread.status === 'resolved' ? 0.75 : 1,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {thread.unread_count > 0 && (
-          <View
+      <TypeGlyph type={thread.type} theme={theme} size={38} />
+
+      <View style={{ flex: 1, gap: 3 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text
+            numberOfLines={1}
             style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: theme.colors.accent,
+              flex: 1,
+              fontSize: 14,
+              fontWeight: unread ? '700' : '600',
+              letterSpacing: -0.1,
+              color: theme.colors.textPrimary,
             }}
-          />
-        )}
-        <Text style={{ fontSize: 11, fontWeight: '500', color: typeColor(thread.type, theme) }}>
-          {QUERY_TYPE_LABEL[thread.type]}
-        </Text>
-        <Text style={[textStyles.meta(theme), { marginLeft: 'auto' }]}>
-          {thread.last_message
-            ? relativeTime(thread.last_message.created_at)
-            : relativeTime(thread.created_at)}
-        </Text>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
-        <Text
-          numberOfLines={1}
-          style={{
-            flex: 1,
-            fontSize: 13,
-            color:
-              thread.unread_count > 0
-                ? theme.colors.textPrimary
-                : theme.colors.textSecondary,
-            fontWeight: thread.unread_count > 0 ? '500' : '400',
-          }}
-        >
-          {preview}
-        </Text>
-        <Chevron color={theme.colors.textTertiary} />
+          >
+            {QUERY_TYPE_LABEL[thread.type]}
+          </Text>
+          <Text style={textStyles.meta(theme)}>{relativeTime(at)}</Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontSize: 13,
+              lineHeight: 18,
+              color: unread ? theme.colors.textPrimary : theme.colors.textSecondary,
+            }}
+          >
+            {thread.last_message?.sender === 'user' ? 'You: ' : ''}
+            {preview}
+          </Text>
+          {unread ? (
+            <UnreadPill count={thread.unread_count} theme={theme} />
+          ) : (
+            <Chevron color={theme.colors.textTertiary} />
+          )}
+        </View>
       </View>
     </PressableRow>
+  );
+}
+
+function ThreadGroup({
+  label,
+  threads,
+  theme,
+  onOpenThread,
+}: {
+  label: string;
+  threads: Thread[];
+  theme: SupportTheme;
+  onOpenThread: (thread: Thread) => void;
+}) {
+  if (threads.length === 0) return null;
+  return (
+    <View style={{ marginTop: 24 }}>
+      <SectionLabel theme={theme} style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+        {label}
+      </SectionLabel>
+      <View
+        style={{
+          marginHorizontal: 16,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          borderRadius: theme.radii.card,
+          backgroundColor: theme.colors.surface,
+          overflow: 'hidden',
+        }}
+      >
+        {threads.map((thread, i) => (
+          <ThreadRow
+            key={thread.id}
+            thread={thread}
+            theme={theme}
+            onPress={() => onOpenThread(thread)}
+            last={i === threads.length - 1}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -83,8 +147,9 @@ export function HomeScreen({
   theme,
   threads,
   loading,
+  refreshing,
   error,
-  onRetry,
+  onRefresh,
   onCompose,
   onOpenThread,
   onClose,
@@ -92,8 +157,9 @@ export function HomeScreen({
   theme: SupportTheme;
   threads: Thread[] | null;
   loading: boolean;
+  refreshing: boolean;
   error: string | null;
-  onRetry: () => void;
+  onRefresh: () => void;
   onCompose: (type: QueryType) => void;
   onOpenThread: (thread: Thread) => void;
   onClose: () => void;
@@ -107,23 +173,42 @@ export function HomeScreen({
       <View
         style={{
           flexDirection: 'row',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           paddingHorizontal: 16,
-          paddingBottom: 12,
+          paddingTop: 4,
+          paddingBottom: 16,
         }}
       >
-        <Text style={textStyles.title(theme)}>Support</Text>
-        <PressableRow
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={textStyles.title(theme)}>Support</Text>
+          <Text style={textStyles.secondary(theme)}>
+            Start a conversation — we reply right here.
+          </Text>
+        </View>
+        <IconButton
           onPress={onClose}
           theme={theme}
-          accessibilityLabel="Close"
-          style={{ marginLeft: 'auto', padding: 6, borderRadius: theme.radii.control }}
+          accessibilityLabel="Close support"
+          size={32}
         >
-          <CloseIcon color={theme.colors.textSecondary} size={13} />
-        </PressableRow>
+          <CloseIcon color={theme.colors.textSecondary} size={12} />
+        </IconButton>
       </View>
 
-      <ScrollView style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.textTertiary}
+            colors={[theme.colors.accent]}
+            progressBackgroundColor={theme.colors.surface}
+          />
+        }
+      >
         {/* Compose actions */}
         <View
           style={{
@@ -144,90 +229,56 @@ export function HomeScreen({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 10,
+                gap: 12,
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 borderTopWidth: i === 0 ? 0 : 1,
                 borderTopColor: theme.colors.border,
               }}
             >
-              {typeIcon(type, typeColor(type, theme))}
-              <Text style={{ fontSize: 14, color: theme.colors.textPrimary, flex: 1 }}>
-                {QUERY_TYPE_LABEL[type]}
-              </Text>
+              <TypeGlyph type={type} theme={theme} size={34} />
+              <View style={{ flex: 1, gap: 1 }}>
+                <Text style={textStyles.heading(theme)}>
+                  {QUERY_TYPE_LABEL[type]}
+                </Text>
+                <Text style={textStyles.meta(theme)}>{COMPOSE_HINT[type]}</Text>
+              </View>
               <Chevron color={theme.colors.textTertiary} />
             </PressableRow>
           ))}
         </View>
 
         {/* Threads */}
-        {error && threads === null ? (
+        {error !== null && threads === null ? (
           // Only take over the screen when there's nothing cached to show —
           // a failed background poll shouldn't hide an already-loaded list.
-          <ErrorState message={error} onRetry={onRetry} theme={theme} />
+          <ErrorState message={error} onRetry={onRefresh} theme={theme} />
         ) : loading && threads === null ? (
-          <View style={{ paddingHorizontal: 16, paddingTop: 24, gap: 14 }}>
-            <SkeletonBlock width={80} height={12} theme={theme} />
-            <SkeletonBlock width="100%" height={40} theme={theme} />
-            <SkeletonBlock width="100%" height={40} theme={theme} />
+          <View style={{ paddingHorizontal: 16, paddingTop: 28, gap: 12 }}>
+            <SkeletonBlock width={110} height={11} theme={theme} radius={4} />
+            <SkeletonBlock width="100%" height={64} theme={theme} radius={theme.radii.card} />
+            <SkeletonBlock width="100%" height={64} theme={theme} radius={theme.radii.card} />
           </View>
         ) : (threads ?? []).length === 0 ? (
-          <EmptyState message="No queries yet" theme={theme} />
+          <EmptyState
+            message="No conversations yet"
+            hint="Anything you send lands with the team, and their replies come back to this sheet."
+            theme={theme}
+          />
         ) : (
           <>
-            {open.length > 0 && (
-              <>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '500',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                    color: theme.colors.textTertiary,
-                    paddingHorizontal: 16,
-                    paddingTop: 20,
-                    paddingBottom: 6,
-                  }}
-                >
-                  Open
-                </Text>
-                {open.map((t) => (
-                  <ThreadRow
-                    key={t.id}
-                    thread={t}
-                    theme={theme}
-                    onPress={() => onOpenThread(t)}
-                  />
-                ))}
-              </>
-            )}
-            {resolved.length > 0 && (
-              <>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '500',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                    color: theme.colors.textTertiary,
-                    paddingHorizontal: 16,
-                    paddingTop: 20,
-                    paddingBottom: 6,
-                  }}
-                >
-                  Resolved
-                </Text>
-                {resolved.map((t) => (
-                  <ThreadRow
-                    key={t.id}
-                    thread={t}
-                    theme={theme}
-                    onPress={() => onOpenThread(t)}
-                  />
-                ))}
-              </>
-            )}
-            <View style={{ height: 16 }} />
+            <ThreadGroup
+              label={`Open · ${open.length}`}
+              threads={open}
+              theme={theme}
+              onOpenThread={onOpenThread}
+            />
+            <ThreadGroup
+              label="Resolved"
+              threads={resolved}
+              theme={theme}
+              onOpenThread={onOpenThread}
+            />
           </>
         )}
       </ScrollView>

@@ -8,6 +8,7 @@ export {
 export { SupportApiError } from './api';
 export { isPushAvailable } from './push';
 export type {
+  LauncherVariant,
   MessageSender,
   PushPermissionStatus,
   QueryStatus,

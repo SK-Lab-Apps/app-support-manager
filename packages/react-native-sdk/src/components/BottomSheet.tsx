@@ -1,10 +1,15 @@
 // Bottom sheet built on the built-in Modal + Animated APIs.
 //
 // Why no sheet library: the SDK needs exactly one detent, a drag handle, a
-// backdrop fade, and a 180ms ease-out slide — all achievable with core APIs.
+// backdrop fade, and a short ease-out slide — all achievable with core APIs.
 // Skipping reanimated/gesture-handler keeps the package free of native
 // dependencies and install friction for consumers.
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+//
+// `visible` drives a single animation path: the sheet stays mounted until
+// its exit finishes, so closing from the header button, the backdrop, the
+// hardware back button, or a drag all animate identically — and a reopen
+// always starts from off-screen instead of appearing already in place.
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -17,7 +22,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import type { SupportTheme } from '../theme';
 
-const SLIDE_MS = 180; // motion.slow — ease-out, no springs, no bounce.
+const SLIDE_MS = 260;
+const FADE_MS = 200;
 
 export function BottomSheet({
   visible,
@@ -31,57 +37,67 @@ export function BottomSheet({
   children: ReactNode;
 }) {
   const { height: windowHeight } = useWindowDimensions();
-  const sheetHeight = Math.min(windowHeight * 0.82, 640);
+  const sheetHeight = Math.min(windowHeight * 0.88, 720);
 
+  const [rendered, setRendered] = useState(false);
   const translateY = useRef(new Animated.Value(sheetHeight)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
+  /** Whether the entrance has already played for the current open. */
+  const shown = useRef(false);
 
-  const animateIn = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: SLIDE_MS,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdrop, {
-        toValue: 1,
-        duration: SLIDE_MS,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [translateY, backdrop]);
+  useEffect(() => {
+    if (visible) setRendered(true);
+  }, [visible]);
 
-  const animateOut = useCallback(
-    (done: () => void) => {
+  useEffect(() => {
+    if (!rendered) return;
+
+    if (visible && !shown.current) {
+      shown.current = true;
+      translateY.setValue(sheetHeight);
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: SLIDE_MS,
+          easing: Easing.bezier(0.16, 1, 0.3, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdrop, {
+          toValue: 1,
+          duration: FADE_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    if (!visible && shown.current) {
+      shown.current = false;
+      // Starts from wherever the sheet is now, so a drag that crosses the
+      // dismiss threshold continues rather than jumping.
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: sheetHeight,
-          duration: SLIDE_MS,
-          easing: Easing.out(Easing.cubic),
+          duration: theme.motion.slow,
+          easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(backdrop, {
           toValue: 0,
-          duration: SLIDE_MS,
-          easing: Easing.out(Easing.cubic),
+          duration: theme.motion.slow,
+          easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start(({ finished }) => {
-        if (finished) done();
+        if (finished) setRendered(false);
       });
-    },
-    [translateY, backdrop, sheetHeight],
-  );
-
-  useEffect(() => {
-    if (visible) animateIn();
-  }, [visible, animateIn]);
+    }
+  }, [rendered, visible, sheetHeight, translateY, backdrop, theme.motion.slow]);
 
   const requestClose = useCallback(() => {
-    animateOut(onClose);
-  }, [animateOut, onClose]);
+    onClose();
+  }, [onClose]);
 
   // Drag handle: follow the finger downward; past 25% (or a flick), dismiss.
   const panResponder = useRef(
@@ -97,7 +113,7 @@ export function BottomSheet({
         } else {
           Animated.timing(translateY, {
             toValue: 0,
-            duration: SLIDE_MS,
+            duration: theme.motion.slow,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }).start();
@@ -106,7 +122,7 @@ export function BottomSheet({
     }),
   ).current;
 
-  if (!visible) return null;
+  if (!rendered) return null;
 
   return (
     <Modal
@@ -125,7 +141,7 @@ export function BottomSheet({
               right: 0,
               bottom: 0,
               left: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.55)',
               opacity: backdrop,
             }}
           >
@@ -139,25 +155,27 @@ export function BottomSheet({
           <Animated.View
             style={{
               height: sheetHeight,
-              backgroundColor: theme.colors.overlay,
+              backgroundColor: theme.colors.bg,
               borderTopLeftRadius: theme.radii.sheet,
               borderTopRightRadius: theme.radii.sheet,
               borderWidth: 1,
               borderBottomWidth: 0,
               borderColor: theme.colors.border,
+              overflow: 'hidden',
               transform: [{ translateY }],
+              ...theme.shadows.sheet,
             }}
           >
             {/* Drag handle */}
             <View
               {...panResponder.panHandlers}
-              style={{ alignItems: 'center', paddingVertical: 10 }}
+              style={{ alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}
             >
               <View
                 style={{
-                  width: 32,
-                  height: 4,
-                  borderRadius: 2,
+                  width: 40,
+                  height: 5,
+                  borderRadius: 3,
                   backgroundColor: theme.colors.borderStrong,
                 }}
               />
