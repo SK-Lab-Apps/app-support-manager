@@ -44,7 +44,9 @@ pnpm --filter web dev
 
 ### Demo data (optional, dev projects only)
 
-Run `supabase/seed.sql` in the SQL editor of a **development** project. It creates an admin (`sarthak` / `admin1234`), a demo app **Habitloop** with API key `sk_support_demo_habitloop_2f8a1c`, and a handful of realistic queries. Don't run it in production — in production, keys are shown once at creation and only their SHA-256 hash is stored.
+Run `supabase/seed.sql` in the SQL editor of a **development** project. It creates one admin, a demo app, and a handful of realistic queries. The admin username/password and the demo app's API key are defined at the top of that file — read them there.
+
+`seed.sql` is deliberately untracked (it carries those credentials in plaintext), so it exists only on the machine that created it. Never run it against production: real API keys are shown once at creation and only their SHA-256 hash is stored.
 
 ## Environment variables
 
