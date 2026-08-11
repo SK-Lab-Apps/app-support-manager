@@ -1,0 +1,26 @@
+# Supabase CLI project config (used by `supabase db push` / `functions deploy`).
+project_id = "support-platform"
+
+# End-user-facing functions authenticate with x-api-key (per app), not a
+# Supabase JWT — JWT verification must stay off for all four.
+[functions.submit-query]
+verify_jwt = false
+
+[functions.get-threads]
+verify_jwt = false
+
+[functions.post-message]
+verify_jwt = false
+
+[functions.mark-read]
+verify_jwt = false
+
+[functions.get-unread-count]
+verify_jwt = false
+
+[functions.register-push]
+verify_jwt = false
+
+# The only staff-facing function: called by the dashboard with an admin JWT.
+[functions.send-push]
+verify_jwt = true
