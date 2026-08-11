@@ -13,7 +13,6 @@ supabase/.branches/
 .expo/
 .expo-export-test/
 .claude
-README.md
 
 # Migrations, functions, and config.toml ARE tracked. Only the demo seed is
 # excluded — it contains a known-public admin password and API key.
