@@ -227,6 +227,7 @@ ${colorVarBlock(darkColors)}
   --radius-control: ${radii.control}px;
   --radius-card: ${radii.card}px;
   --radius-card-lg: ${radii.cardLg}px;
+  --radius-sheet: ${radii.sheet}px;
   --motion-fast: ${motion.fast}ms;
   --motion-base: ${motion.base}ms;
   --motion-slow: ${motion.slow}ms;

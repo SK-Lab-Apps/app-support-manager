@@ -24,3 +24,8 @@ verify_jwt = false
 # The only staff-facing function: called by the dashboard with an admin JWT.
 [functions.send-push]
 verify_jwt = true
+
+# Machine-to-machine: invoked by the pg_cron job with a shared bearer token
+# (ESCALATION_CRON_TOKEN), which the function checks itself.
+[functions.escalate-unread]
+verify_jwt = false
