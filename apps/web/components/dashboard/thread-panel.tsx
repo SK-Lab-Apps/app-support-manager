@@ -22,8 +22,8 @@ import {
   PaidTag,
   PushStatusChip,
   StatusIndicator,
-  TypeChip,
 } from "@/components/ui/chips";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ADMIN_MAX = 1000;
@@ -266,21 +266,26 @@ export function ThreadPanel({
       role="dialog"
       aria-label="Query thread"
       className={cn(
+        // Full screen on phones; a side panel that grows with the viewport
+        // from md up, never wider than the screen can spare.
         "fixed inset-0 z-30 flex flex-col bg-bg",
-        "md:inset-y-0 md:left-auto md:right-0 md:w-[480px] md:border-l md:border-border md:bg-surface md:shadow-overlay",
+        "pl-safe-l pr-safe-r pt-safe-t",
+        "md:inset-y-0 md:left-auto md:right-0 md:w-[420px] md:max-w-[calc(100vw-3rem)]",
+        "md:border-l md:border-border md:bg-surface md:shadow-overlay",
+        "lg:w-[480px] xl:w-[540px]",
       )}
     >
       {/* Header */}
-      <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 py-3">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-3 md:px-4">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium text-primary">
             {row.user_name}
           </span>
-          {row.is_paid && <PaidTag />}
-          <span className="tnum truncate text-2xs text-tertiary">
+          {row.is_paid && <PaidTag className="shrink-0" />}
+          <span className="tnum hidden truncate text-2xs text-tertiary xs:block">
             {row.revenuecat_id}
           </span>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {resolved ? (
               <Button
                 size="sm"
@@ -300,17 +305,12 @@ export function ThreadPanel({
                 Resolve
               </Button>
             )}
-            <button
-              onClick={onClose}
-              aria-label="Close thread"
-              className="rounded-control p-1.5 text-secondary transition-colors duration-fast hover:bg-surface-hover hover:text-primary"
-            >
+            <IconButton onClick={onClose} aria-label="Close thread">
               <X size={15} strokeWidth={1.5} />
-            </button>
+            </IconButton>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-tertiary">
-          {/* <TypeChip type={row.type} /> */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-tertiary">
           <StatusIndicator status={row.status} />
           <span className="tnum">v{row.app_version}</span>
           <span className="tnum" title={absoluteTime(row.created_at)}>
@@ -321,17 +321,17 @@ export function ThreadPanel({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 md:px-4"
+      >
         {loadError ? (
-          <div className="flex flex-col items-center gap-3 py-12">
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
             <p className="text-sm text-secondary">Couldn&apos;t load thread</p>
-            <button
-              onClick={() => void fetchMessages()}
-              className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface px-2.5 py-1 text-xs text-primary transition-colors duration-fast hover:bg-surface-hover"
-            >
+            <Button size="sm" onClick={() => void fetchMessages()}>
               <RotateCw size={12} strokeWidth={1.5} />
               Retry
-            </button>
+            </Button>
           </div>
         ) : messages === null ? (
           <div className="flex flex-col gap-3">
@@ -345,7 +345,7 @@ export function ThreadPanel({
               <div
                 key={m.id}
                 className={cn(
-                  "flex max-w-[85%] flex-col gap-1",
+                  "flex max-w-[90%] flex-col gap-1 sm:max-w-[85%]",
                   m.sender === "admin" ? "ml-auto items-end" : "items-start",
                 )}
               >
@@ -392,8 +392,8 @@ export function ThreadPanel({
         )}
       </div>
 
-      {/* Composer */}
-      <div className="shrink-0 border-t border-border px-4 py-3">
+      {/* Composer — clears the iOS home indicator when full screen. */}
+      <div className="shrink-0 border-t border-border px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-4">
         {resolved ? (
           <p className="py-1 text-center text-xs text-tertiary">
             Thread is resolved and read-only
@@ -416,10 +416,10 @@ export function ThreadPanel({
                 "w-full resize-none rounded-control border border-border bg-surface px-2.5 py-2 text-sm text-primary",
                 "placeholder:text-tertiary transition-colors duration-fast",
                 "hover:border-border-strong focus:border-border-strong",
-                "md:bg-bg",
+                "coarse:text-input md:bg-bg",
               )}
             />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
               <span
                 className={cn(
                   "tnum text-2xs",
@@ -430,7 +430,7 @@ export function ThreadPanel({
               >
                 {draft.length}/{ADMIN_MAX}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2">
                 {sendError && (
                   <span className="text-xs text-status-danger">
                     Couldn&apos;t send — try again

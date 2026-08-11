@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 
 /**
@@ -77,7 +78,7 @@ export function NewAppDialog({ adminId }: { adminId: string }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <button className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-sm text-secondary transition-colors duration-fast hover:bg-surface-hover hover:text-primary">
+        <button className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-sm text-secondary transition-colors duration-fast hover:bg-surface-hover hover:text-primary coarse:min-h-[44px]">
           <Plus size={14} strokeWidth={1.5} />
           Add app
         </button>
@@ -127,21 +128,25 @@ export function NewAppDialog({ adminId }: { adminId: string }) {
               This key is shown once and cannot be recovered. Store it in your
               app&apos;s secret config now.
             </DialogDescription>
-            <div className="mt-4 flex items-center gap-2 rounded-control border border-border bg-surface px-2.5 py-2">
+            <div className="mt-4 flex items-center gap-2 rounded-control border border-border bg-surface py-1 pl-2.5 pr-1">
               <code className="tnum min-w-0 flex-1 truncate font-mono text-xs text-primary">
                 {rawKey}
               </code>
-              <button
+              <IconButton
                 onClick={copyKey}
                 aria-label="Copy API key"
-                className="shrink-0 rounded-control p-1 text-secondary transition-colors duration-fast hover:bg-surface-hover hover:text-primary"
+                className="h-7 w-7 coarse:h-[38px] coarse:w-[38px]"
               >
                 {copied ? (
-                  <Check size={13} strokeWidth={1.5} className="text-status-resolved" />
+                  <Check
+                    size={13}
+                    strokeWidth={1.5}
+                    className="text-status-resolved"
+                  />
                 ) : (
                   <Copy size={13} strokeWidth={1.5} />
                 )}
-              </button>
+              </IconButton>
             </div>
             <div className="mt-4 flex justify-end">
               <Button variant="secondary" onClick={() => handleOpenChange(false)}>

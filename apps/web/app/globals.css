@@ -5,11 +5,16 @@
 @layer base {
   html {
     font-size: 14px;
+    /* Keep the density fixed when an iPhone is rotated to landscape. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
     @apply bg-bg text-primary antialiased;
     font-feature-settings: 'cv02', 'cv03';
+    /* App-like: no pull-to-refresh or rubber-band behind fixed panels. */
+    overscroll-behavior-y: none;
   }
 
   /* Counts, dates, and IDs always align. */
@@ -43,5 +48,24 @@
   }
   *::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* Touch scrolling that doesn't chain to the page behind an overlay. */
+  @media (pointer: coarse) {
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+
+  /* Nothing here is load-bearing; honour the OS preference outright. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

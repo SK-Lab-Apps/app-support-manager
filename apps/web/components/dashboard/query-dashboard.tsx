@@ -20,7 +20,8 @@ import type {
   TypeFilter,
 } from "@/lib/types";
 import { absoluteTime, cn, formatMinutes, relativeTime } from "@/lib/utils";
-import { PaidTag, StatusIndicator, TypeChip } from "@/components/ui/chips";
+import { Button } from "@/components/ui/button";
+import { PaidTag, StatusIndicator } from "@/components/ui/chips";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { ThreadPanel } from "@/components/dashboard/thread-panel";
@@ -42,9 +43,11 @@ function FilterSelect<T extends string>({
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
       className={cn(
-        "h-7 rounded-control border border-border bg-surface pl-2 pr-6 text-xs text-secondary",
+        "h-7 shrink-0 rounded-control border border-border bg-surface pl-2 pr-6 text-xs text-secondary",
         "cursor-pointer appearance-none bg-no-repeat",
         "transition-colors duration-fast hover:border-border-strong hover:text-primary",
+        // 16px keeps iOS Safari from zooming the page on focus.
+        "coarse:h-[38px] coarse:pl-2.5 coarse:pr-7 coarse:text-input",
       )}
       style={{
         backgroundImage:
@@ -61,10 +64,16 @@ function FilterSelect<T extends string>({
   );
 }
 
+/**
+ * `contents` hands the label and value straight to the parent grid so all
+ * three labels share one row and all three values share the next — a label
+ * that wraps to two lines can't then shove its own value out of line.
+ * From sm up it collapses back to label-beside-value.
+ */
 function StatItem({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-2xs uppercase tracking-wide text-tertiary">
+    <div className="contents sm:flex sm:min-w-0 sm:items-baseline sm:gap-2">
+      <span className="text-2xs uppercase leading-tight tracking-wide text-tertiary">
         {label}
       </span>
       <span className="tnum text-sm font-medium text-primary">{value}</span>
@@ -222,12 +231,12 @@ export function QueryDashboard({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 md:px-4">
-        <h1 className="mr-2 truncate text-lg font-semibold tracking-heading">
+      {/* Toolbar — title, then search, then filters as they stop fitting. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 md:px-4">
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-heading sm:mr-2 sm:flex-none">
           {appName}
         </h1>
-        <div className="relative ml-auto w-full sm:w-56 order-last sm:order-none">
+        <div className="relative w-full sm:ml-auto sm:w-56">
           <Search
             size={13}
             strokeWidth={1.5}
@@ -239,58 +248,68 @@ export function QueryDashboard({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search queries"
             aria-label="Search queries"
+            type="search"
             className={cn(
               "h-7 w-full rounded-control border border-border bg-surface pl-7 pr-2 text-xs text-primary",
               "placeholder:text-tertiary transition-colors duration-fast",
               "hover:border-border-strong focus:border-border-strong",
+              "coarse:h-[38px] coarse:pl-8 coarse:text-input",
             )}
           />
         </div>
-        <FilterSelect
-          label="Filter by type"
-          value={typeFilter}
-          onChange={setTypeFilter}
-          options={[
-            { value: "all", label: "All types" },
-            { value: "feedback", label: "Feedback" },
-            { value: "feature_request", label: "Feature request" },
-            { value: "bug_report", label: "Bug report" },
-          ]}
-        />
-        <FilterSelect
-          label="Filter by status"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "All statuses" },
-            { value: "open", label: "Open" },
-            { value: "resolved", label: "Resolved" },
-          ]}
-        />
-        <FilterSelect
-          label="Filter by plan"
-          value={paidFilter}
-          onChange={setPaidFilter}
-          options={[
-            { value: "all", label: "Paid & free" },
-            { value: "paid", label: "Paid" },
-            { value: "free", label: "Free" },
-          ]}
-        />
-        <FilterSelect
-          label="Sort"
-          value={sort}
-          onChange={setSort}
-          options={[
-            { value: "newest", label: "Newest" },
-            { value: "oldest", label: "Oldest" },
-            { value: "active", label: "Recently active" },
-          ]}
-        />
+        {/* One horizontal scroller on phones instead of three wrapped rows. */}
+        <div
+          className={cn(
+            "flex w-full gap-2 overflow-x-auto scrollbar-none",
+            "sm:w-auto sm:flex-wrap sm:overflow-visible",
+          )}
+        >
+          <FilterSelect
+            label="Filter by type"
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              { value: "all", label: "All types" },
+              { value: "feedback", label: "Feedback" },
+              { value: "feature_request", label: "Feature request" },
+              { value: "bug_report", label: "Bug report" },
+            ]}
+          />
+          <FilterSelect
+            label="Filter by status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "open", label: "Open" },
+              { value: "resolved", label: "Resolved" },
+            ]}
+          />
+          <FilterSelect
+            label="Filter by plan"
+            value={paidFilter}
+            onChange={setPaidFilter}
+            options={[
+              { value: "all", label: "Paid & free" },
+              { value: "paid", label: "Paid" },
+              { value: "free", label: "Free" },
+            ]}
+          />
+          <FilterSelect
+            label="Sort"
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: "newest", label: "Newest" },
+              { value: "oldest", label: "Oldest" },
+              { value: "active", label: "Recently active" },
+            ]}
+          />
+        </div>
       </div>
 
-      {/* Stats strip */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-border px-3 py-2 md:px-4">
+      {/* Stats strip — even thirds on phones, inline once labels fit beside values. */}
+      <div className="grid shrink-0 auto-cols-fr grid-flow-col grid-rows-[auto_auto] items-start gap-x-3 gap-y-0.5 border-b border-border px-3 py-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-1 md:px-4">
         <StatItem label="Open" value={stats ? stats.open_count : "—"} />
         <StatItem
           label="Resolved this week"
@@ -302,18 +321,16 @@ export function QueryDashboard({
         />
       </div>
 
-      {/* List — the only vertical scroller; toolbar and stats stay pinned. */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* List — the only vertical scroller; toolbar and stats stay pinned.
+          Bottom inset lets the last row clear the iOS home indicator. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-safe-b">
         {error ? (
-          <div className="flex flex-col items-center gap-3 py-16">
+          <div className="flex flex-col items-center gap-3 px-3 py-16 text-center">
             <p className="text-sm text-secondary">Couldn&apos;t load queries</p>
-            <button
-              onClick={() => void fetchRows()}
-              className="inline-flex items-center gap-1.5 rounded-control border border-border bg-surface px-2.5 py-1 text-xs text-primary transition-colors duration-fast hover:bg-surface-hover"
-            >
+            <Button size="sm" onClick={() => void fetchRows()}>
               <RotateCw size={12} strokeWidth={1.5} />
               Retry
-            </button>
+            </Button>
           </div>
         ) : rows === null ? (
           <TableSkeleton />
@@ -324,24 +341,24 @@ export function QueryDashboard({
           />
         ) : (
           <>
-            {/* Desktop table */}
+            {/* Table from sm up. Columns drop as the viewport narrows: user at
+                lg, version at md, leaving status + query + counts on tablets. */}
             <div className="hidden sm:block">
-              <div className="sticky top-0 z-10 flex h-8 items-center gap-3 border-b border-border bg-bg px-4 text-2xs uppercase tracking-wide text-tertiary">
+              <div className="sticky top-0 z-10 flex h-8 items-center gap-3 border-b border-border bg-bg px-3 text-2xs uppercase tracking-wide text-tertiary md:px-4">
                 <span className="w-2 shrink-0" />
                 <span className="w-[72px] shrink-0">Status</span>
-                <span className="w-[118px] shrink-0">Type</span>
                 <span className="min-w-0 flex-1">Query</span>
                 <span className="hidden w-[140px] shrink-0 lg:block">User</span>
                 <span className="hidden w-14 shrink-0 md:block">Version</span>
                 <span className="w-8 shrink-0 text-right">Msgs</span>
-                <span className="w-14 shrink-0 text-right">Age</span>
+                <span className="w-16 shrink-0 text-right">Age</span>
               </div>
               {rows.map((row) => (
                 <button
                   key={row.id}
                   onClick={() => openThread(row)}
                   className={cn(
-                    "flex h-11 w-full items-center gap-3 border-b border-border px-4 text-left",
+                    "flex h-11 w-full items-center gap-3 border-b border-border px-3 text-left md:px-4",
                     "transition-colors duration-fast hover:bg-surface-hover",
                     selectedId === row.id && "bg-surface-active",
                   )}
@@ -357,9 +374,6 @@ export function QueryDashboard({
                   <span className="w-[72px] shrink-0">
                     <StatusIndicator status={row.status} />
                   </span>
-                  {/* <span className="w-[118px] shrink-0">
-                    <TypeChip type={row.type} />
-                  </span> */}
                   <span
                     className={cn(
                       "min-w-0 flex-1 truncate text-sm",
@@ -383,7 +397,7 @@ export function QueryDashboard({
                     {row.message_count}
                   </span>
                   <span
-                    className="tnum w-14 shrink-0 text-right text-xs text-tertiary"
+                    className="tnum w-16 shrink-0 whitespace-nowrap text-right text-xs text-tertiary"
                     title={absoluteTime(row.created_at)}
                   >
                     {relativeTime(row.created_at)}
@@ -392,22 +406,24 @@ export function QueryDashboard({
               ))}
             </div>
 
-            {/* Mobile card list */}
+            {/* Card list below sm — a row of 7 columns has nothing to give. */}
             <div className="sm:hidden">
               {rows.map((row) => (
                 <button
                   key={row.id}
                   onClick={() => openThread(row)}
-                  className="flex w-full flex-col gap-1.5 border-b border-border px-3 py-3 text-left transition-colors duration-fast hover:bg-surface-hover"
+                  className={cn(
+                    "flex w-full flex-col gap-1.5 border-b border-border px-3 py-3 text-left",
+                    "transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active",
+                  )}
                 >
                   <span className="flex items-center gap-2">
                     {row.unread_for_admin && (
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                     )}
-                    {/* <TypeChip type={row.type} /> */}
                     <StatusIndicator status={row.status} />
                     <span
-                      className="tnum ml-auto text-xs text-tertiary"
+                      className="tnum ml-auto shrink-0 text-xs text-tertiary"
                       title={absoluteTime(row.created_at)}
                     >
                       {relativeTime(row.created_at)}
@@ -415,7 +431,7 @@ export function QueryDashboard({
                   </span>
                   <span
                     className={cn(
-                      "line-clamp-2 text-sm",
+                      "line-clamp-2 break-words text-sm",
                       row.unread_for_admin
                         ? "font-medium text-primary"
                         : "text-secondary",
@@ -424,9 +440,9 @@ export function QueryDashboard({
                     {row.excerpt ?? "—"}
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-tertiary">
-                    <span className="truncate">{row.user_name}</span>
+                    <span className="min-w-0 truncate">{row.user_name}</span>
                     {row.is_paid && <PaidTag />}
-                    <span className="tnum ml-auto">
+                    <span className="tnum ml-auto shrink-0">
                       v{row.app_version} · {row.message_count} msg
                       {row.message_count === 1 ? "" : "s"}
                     </span>

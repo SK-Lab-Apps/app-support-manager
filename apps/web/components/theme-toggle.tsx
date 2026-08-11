@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { IconButton } from '@/components/ui/icon-button';
 
 /**
  * Toggles data-theme on <html> and persists to localStorage.
@@ -27,16 +28,17 @@ export function ThemeToggle() {
   }
 
   return (
-    <button
+    <IconButton
       onClick={toggle}
-      aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-      className="rounded-control p-1.5 text-secondary transition-colors duration-fast hover:bg-surface-hover hover:text-primary"
+      aria-label={
+        theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
+      }
     >
       {theme === 'dark' ? (
         <Sun size={15} strokeWidth={1.5} />
       ) : (
         <Moon size={15} strokeWidth={1.5} />
       )}
-    </button>
+    </IconButton>
   );
 }

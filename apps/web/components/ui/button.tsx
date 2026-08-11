@@ -19,9 +19,10 @@ const variantClasses: Record<Variant, string> = {
     'bg-transparent text-status-danger border border-border hover:bg-status-danger-bg hover:border-border-strong',
 };
 
+/** Coarse heights are explicit px — rem shrinks against the 14px root. */
 const sizeClasses: Record<Size, string> = {
-  sm: 'h-7 px-2.5 text-xs gap-1.5',
-  md: 'h-8 px-3 text-sm gap-2',
+  sm: 'h-7 px-2.5 text-xs gap-1.5 coarse:h-[38px] coarse:px-3',
+  md: 'h-8 px-3 text-sm gap-2 coarse:h-[44px] coarse:px-3.5',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

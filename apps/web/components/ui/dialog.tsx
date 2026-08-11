@@ -29,8 +29,11 @@ export const DialogContent = forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
-          'rounded-card-lg border border-border bg-overlay p-5 shadow-overlay',
+          'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+          // Never edge-to-edge on a phone, never taller than the viewport.
+          'w-[calc(100vw-1.5rem)] max-w-md sm:w-full',
+          'max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain',
+          'rounded-card-lg border border-border bg-overlay p-4 shadow-overlay sm:p-5',
           'duration-base ease-out',
           className,
         )}
@@ -41,6 +44,7 @@ export const DialogContent = forwardRef<
           className={cn(
             'absolute right-3.5 top-3.5 rounded-control p-1 text-tertiary',
             'transition-colors duration-fast hover:bg-surface-hover hover:text-primary',
+            'coarse:right-2 coarse:top-2 coarse:p-2.5',
           )}
           aria-label="Close"
         >
