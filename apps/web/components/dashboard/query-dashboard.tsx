@@ -20,8 +20,9 @@ import type {
   TypeFilter,
 } from "@/lib/types";
 import { absoluteTime, cn, formatMinutes, relativeTime } from "@/lib/utils";
+import { isTranslated } from "@/lib/languages";
 import { Button } from "@/components/ui/button";
-import { PaidTag, StatusIndicator } from "@/components/ui/chips";
+import { LanguageChip, PaidTag, StatusIndicator } from "@/components/ui/chips";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { ThreadPanel } from "@/components/dashboard/thread-panel";
@@ -389,6 +390,12 @@ export function QueryDashboard({
                       {row.user_name}
                     </span>
                     {row.is_paid && <PaidTag />}
+                    {isTranslated(row.user_language) && row.user_language && (
+                      <LanguageChip
+                        language={row.user_language}
+                        className="shrink-0 px-0"
+                      />
+                    )}
                   </span>
                   <span className="tnum hidden w-14 shrink-0 text-xs text-tertiary md:block">
                     {row.app_version}
@@ -442,6 +449,12 @@ export function QueryDashboard({
                   <span className="flex items-center gap-1.5 text-xs text-tertiary">
                     <span className="min-w-0 truncate">{row.user_name}</span>
                     {row.is_paid && <PaidTag />}
+                    {isTranslated(row.user_language) && row.user_language && (
+                      <LanguageChip
+                        language={row.user_language}
+                        className="shrink-0 px-0"
+                      />
+                    )}
                     <span className="tnum ml-auto shrink-0">
                       v{row.app_version} · {row.message_count} msg
                       {row.message_count === 1 ? "" : "s"}

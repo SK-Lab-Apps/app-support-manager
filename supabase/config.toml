@@ -21,9 +21,18 @@ verify_jwt = false
 [functions.register-push]
 verify_jwt = false
 
+[functions.set-language]
+verify_jwt = false
+
 # The only staff-facing function: called by the dashboard with an admin JWT.
 [functions.send-push]
 verify_jwt = true
+
+# Two callers, two credentials — the dashboard with an admin JWT and the
+# pg_cron sweep with the shared cron token — so the function checks both
+# itself rather than delegating to the platform.
+[functions.translate-message]
+verify_jwt = false
 
 # Machine-to-machine: invoked by the pg_cron job with a shared bearer token
 # (ESCALATION_CRON_TOKEN), which the function checks itself.

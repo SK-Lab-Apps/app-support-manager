@@ -1,5 +1,14 @@
-import { Bell, BellOff, BellRing, Bug, Lightbulb, MessageSquare } from 'lucide-react';
+import {
+  Bell,
+  BellOff,
+  BellRing,
+  Bug,
+  Languages,
+  Lightbulb,
+  MessageSquare,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { languageName } from '@/lib/languages';
 import {
   QUERY_TYPE_LABEL,
   type PushSubscriptionRow,
@@ -123,6 +132,33 @@ export function PushStatusChip({
     >
       <Icon size={11} strokeWidth={1.5} />
       {label}
+    </span>
+  );
+}
+
+/**
+ * The language this user writes in. Only rendered when it isn't English —
+ * the overwhelming majority of threads need no chip, and a chip on every row
+ * would stop meaning anything.
+ */
+export function LanguageChip({
+  language,
+  className,
+}: {
+  language: string;
+  className?: string;
+}) {
+  const name = languageName(language);
+  return (
+    <span
+      title={`User writes in ${name}; messages are shown translated`}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-2xs font-medium text-tertiary',
+        className,
+      )}
+    >
+      <Languages size={11} strokeWidth={1.5} />
+      {name}
     </span>
   );
 }

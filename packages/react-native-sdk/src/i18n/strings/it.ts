@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const it: StringTable = {
+  'home.title': 'Assistenza',
+  'home.subtitle': 'Inizia una conversazione — rispondiamo qui.',
+  'home.close': 'Chiudi assistenza',
+  'home.open': 'Aperte',
+  'home.resolved': 'Risolte',
+  'home.empty': 'Ancora nessuna conversazione',
+  'home.emptyHint':
+    'Tutto ciò che invii arriva al team, e le loro risposte tornano in questa finestra.',
+  'home.noMessages': 'Ancora nessun messaggio',
+  'home.you': 'Tu',
+  'home.threadA11y': 'Conversazione: {type}',
+  'home.threadUnreadA11y': 'Conversazione: {type}, {count} non letti',
+  'home.newA11y': 'Nuovo: {type}',
+  'home.language': 'Lingua',
+
+  'type.feedback': 'Feedback',
+  'type.feature_request': 'Richiesta di funzionalità',
+  'type.bug_report': 'Segnalazione di bug',
+  'hint.feedback': 'Dicci cosa ne pensi',
+  'hint.feature_request': 'Proponi un miglioramento',
+  'hint.bug_report': 'Qualcosa non funziona',
+  'prompt.feedback': 'Cosa dovremmo sapere?',
+  'prompt.feature_request': 'Cosa ti piacerebbe vedere?',
+  'prompt.bug_report': 'Cosa è successo e cosa ti aspettavi?',
+  'sub.feedback': 'Positivo o negativo — arriva dritto al team.',
+  'sub.feature_request': 'Raccontaci cosa stai cercando di fare.',
+  'sub.bug_report': 'I passaggi, la schermata e cosa ti aspettavi ci aiutano.',
+
+  'compose.back': 'Torna alle conversazioni',
+  'compose.sent': 'Inviato',
+  'compose.sentHint':
+    'Ti risponderemo qui. Troverai la conversazione in Aperte, e il pulsante mostra un badge quando rispondiamo.',
+  'compose.done': 'Fatto',
+  'compose.send': 'Invia',
+  'compose.sending': 'Invio…',
+  'compose.minChars': 'Almeno {count} caratteri',
+
+  'thread.support': 'Assistenza',
+  'thread.new': 'Nuovo',
+  'thread.resolvedAt': 'Risolta · {date}',
+  'thread.readOnly': 'Questa conversazione è risolta e in sola lettura',
+  'thread.placeholder': 'Scrivi una risposta…',
+  'thread.sendA11y': 'Invia risposta',
+  'thread.sendingA11y': 'Invio in corso',
+  'thread.translating': 'Traduzione…',
+
+  'status.open': 'Aperta',
+  'status.resolved': 'Risolta',
+
+  'error.tryAgain': 'Riprova',
+  'error.rateLimited': 'Troppe richieste — riprova più tardi',
+  'error.offline': 'Sei offline — controlla la connessione',
+  'error.sendFailed': 'Invio non riuscito — riprova',
+  'error.loadFailed': 'Impossibile caricare le tue conversazioni',
+  'error.unavailable': "L'assistenza non è disponibile al momento",
+  'error.loadRateLimited': 'Troppe richieste — riprova tra poco',
+
+  'lang.title': 'Scegli la tua lingua',
+  'lang.subtitle':
+    'Scrivi nella lingua che preferisci — traduciamo tra te e il team di assistenza.',
+  'lang.continue': 'Continua',
+  'lang.change': 'Cambia lingua',
+  'lang.saveFailed': 'Salvataggio non riuscito — riprova',
+
+  'time.justNow': 'proprio ora',
+  'time.minutes': '{count} min fa',
+  'time.hours': '{count} h fa',
+  'time.days': '{count} g fa',
+  'time.weeks': '{count} sett. fa',
+  'time.months': '{count} mesi fa',
+  'time.years': '{count} anni fa',
+  'time.today': 'Oggi',
+  'time.yesterday': 'Ieri',
+};

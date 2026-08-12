@@ -7,6 +7,14 @@ export {
 } from './theme';
 export { SupportApiError } from './api';
 export { isPushAvailable } from './push';
+export {
+  DEFAULT_LANGUAGE,
+  deviceLanguage,
+  isSupportedLanguage,
+  LANGUAGE_LABELS,
+  SUPPORTED_LANGUAGES,
+  type Language,
+} from './i18n/languages';
 export type {
   LauncherVariant,
   MessageSender,

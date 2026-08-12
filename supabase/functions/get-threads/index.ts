@@ -1,9 +1,19 @@
 // GET /functions/v1/get-threads?revenuecat_id=...
 // Returns the calling user's open and resolved threads with messages, plus
 // per-thread and total unread counts (admin messages newer than the user's
-// read receipt).
+// read receipt) and the language they picked.
 // Auth: x-api-key header. Data is scoped to that app + revenuecat_id only.
 // Rate limiting: see note in _shared/app-auth.ts.
+//
+// `language` is null when this user has never picked one, which is what the
+// SDK keys its one-time language prompt off. It rides along here rather than
+// on its own endpoint so first launch stays a single round trip.
+//
+// Admin display names are deliberately NOT in this payload. End users see one
+// support team, not the individuals staffing the queue — and leaving the
+// names out of the response entirely, rather than merely not rendering them,
+// means there is nothing to find by inspecting the traffic. The dashboard
+// still shows who wrote what; it reads the tables directly.
 
 import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
@@ -17,8 +27,9 @@ interface MessageRow {
   id: string;
   sender: 'user' | 'admin';
   body: string;
+  body_translated: string | null;
+  translation_status: 'skipped' | 'pending' | 'done' | 'failed';
   created_at: string;
-  admins: { display_name: string } | null;
 }
 
 interface QueryRow {
@@ -28,7 +39,6 @@ interface QueryRow {
   created_at: string;
   resolved_at: string | null;
   app_version: string;
-  resolved_admin: { display_name: string } | null;
   messages: MessageRow[];
   read_receipts: { reader: 'user' | 'admin'; last_read_at: string }[];
 }
@@ -52,8 +62,7 @@ Deno.serve(async (req) => {
     .from('queries')
     .select(
       `id, type, status, created_at, resolved_at, app_version,
-       resolved_admin:admins!queries_resolved_by_fkey(display_name),
-       messages(id, sender, body, created_at, admins(display_name)),
+       messages(id, sender, body, body_translated, translation_status, created_at),
        read_receipts(reader, last_read_at)`,
     )
     .eq('app_id', app.id)
@@ -65,6 +74,25 @@ Deno.serve(async (req) => {
     console.error('get-threads: select failed', error);
     return errorResponse("Couldn't load threads", 500);
   }
+
+  const { data: locale } = await supabase
+    .from('user_locales')
+    .select('language')
+    .eq('app_id', app.id)
+    .eq('revenuecat_id', parsed.data.revenuecat_id)
+    .maybeSingle();
+
+  /**
+   * The rendering this user should see: their own words as they wrote them,
+   * and admin replies in their language. The English original of an admin
+   * reply is of no use on this side, so it never leaves the server — which
+   * also keeps the payload down on a mobile connection.
+   *
+   * A reply whose translation failed falls back to English: showing it in the
+   * wrong language beats showing nothing.
+   */
+  const displayBody = (m: MessageRow): string =>
+    m.sender === 'admin' ? (m.body_translated ?? m.body) : m.body;
 
   let totalUnread = 0;
   const threads = ((data ?? []) as unknown as QueryRow[]).map((q) => {
@@ -82,21 +110,32 @@ Deno.serve(async (req) => {
       status: q.status,
       created_at: q.created_at,
       resolved_at: q.resolved_at,
-      resolved_by_name: q.resolved_admin?.display_name ?? null,
       app_version: q.app_version,
       unread_count: unread,
       last_message: lastMessage
-        ? { body: lastMessage.body, sender: lastMessage.sender, created_at: lastMessage.created_at }
+        ? {
+            body: displayBody(lastMessage),
+            sender: lastMessage.sender,
+            created_at: lastMessage.created_at,
+          }
         : null,
       messages: q.messages.map((m) => ({
         id: m.id,
         sender: m.sender,
-        body: m.body,
+        body: displayBody(m),
         created_at: m.created_at,
-        admin_name: m.admins?.display_name ?? null,
+        // Lets the SDK mark a reply as still being translated rather than
+        // flashing English text that changes under the reader a second later.
+        translation_pending:
+          m.sender === 'admin' && m.translation_status === 'pending',
       })),
     };
   });
 
-  return json({ threads, total_unread: totalUnread });
+  return json({
+    threads,
+    total_unread: totalUnread,
+    // Null means "never picked one" — the SDK shows its language prompt.
+    language: locale?.language ?? null,
+  });
 });

@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const tr: StringTable = {
+  'home.title': 'Destek',
+  'home.subtitle': 'Bir görüşme başlatın — tam burada yanıtlıyoruz.',
+  'home.close': 'Desteği kapat',
+  'home.open': 'Açık',
+  'home.resolved': 'Çözüldü',
+  'home.empty': 'Henüz görüşme yok',
+  'home.emptyHint':
+    'Gönderdiğiniz her şey ekibe ulaşır ve yanıtları bu pencereye geri gelir.',
+  'home.noMessages': 'Henüz mesaj yok',
+  'home.you': 'Siz',
+  'home.threadA11y': 'Görüşme: {type}',
+  'home.threadUnreadA11y': 'Görüşme: {type}, {count} okunmamış',
+  'home.newA11y': 'Yeni: {type}',
+  'home.language': 'Dil',
+
+  'type.feedback': 'Geri bildirim',
+  'type.feature_request': 'Özellik isteği',
+  'type.bug_report': 'Hata bildirimi',
+  'hint.feedback': 'Ne düşündüğünüzü söyleyin',
+  'hint.feature_request': 'Bir iyileştirme önerin',
+  'hint.bug_report': 'Bir şey çalışmıyor',
+  'prompt.feedback': 'Neyi bilmemiz gerekiyor?',
+  'prompt.feature_request': 'Neyi görmek istersiniz?',
+  'prompt.bug_report': 'Ne oldu ve ne olmasını bekliyordunuz?',
+  'sub.feedback': 'İyi ya da kötü — doğrudan ekibe gider.',
+  'sub.feature_request': 'Ne yapmaya çalıştığınızı anlatın.',
+  'sub.bug_report': 'Adımlar, ekran ve beklentiniz bize yardımcı olur.',
+
+  'compose.back': 'Görüşmelere dön',
+  'compose.sent': 'Gönderildi',
+  'compose.sentHint':
+    'Tam burada yanıtlayacağız. Görüşmeyi Açık bölümünde bulursunuz ve yanıtladığımızda düğmede bir işaret belirir.',
+  'compose.done': 'Tamam',
+  'compose.send': 'Gönder',
+  'compose.sending': 'Gönderiliyor…',
+  'compose.minChars': 'En az {count} karakter',
+
+  'thread.support': 'Destek',
+  'thread.new': 'Yeni',
+  'thread.resolvedAt': 'Çözüldü · {date}',
+  'thread.readOnly': 'Bu görüşme çözüldü ve salt okunur',
+  'thread.placeholder': 'Bir yanıt yazın…',
+  'thread.sendA11y': 'Yanıtı gönder',
+  'thread.sendingA11y': 'Gönderiliyor',
+  'thread.translating': 'Çevriliyor…',
+
+  'status.open': 'Açık',
+  'status.resolved': 'Çözüldü',
+
+  'error.tryAgain': 'Tekrar dene',
+  'error.rateLimited': 'Çok fazla istek — daha sonra tekrar deneyin',
+  'error.offline': 'Çevrimdışısınız — bağlantınızı kontrol edin',
+  'error.sendFailed': 'Gönderilemedi — tekrar deneyin',
+  'error.loadFailed': 'Görüşmeleriniz yüklenemedi',
+  'error.unavailable': 'Destek şu anda kullanılamıyor',
+  'error.loadRateLimited': 'Çok fazla istek — birazdan tekrar deneyin',
+
+  'lang.title': 'Dilinizi seçin',
+  'lang.subtitle':
+    'İstediğiniz dilde yazın — sizinle destek ekibi arasında çeviri yapıyoruz.',
+  'lang.continue': 'Devam',
+  'lang.change': 'Dili değiştir',
+  'lang.saveFailed': 'Kaydedilemedi — tekrar deneyin',
+
+  'time.justNow': 'az önce',
+  'time.minutes': '{count} dk önce',
+  'time.hours': '{count} sa önce',
+  'time.days': '{count} g önce',
+  'time.weeks': '{count} hf önce',
+  'time.months': '{count} ay önce',
+  'time.years': '{count} yıl önce',
+  'time.today': 'Bugün',
+  'time.yesterday': 'Dün',
+};

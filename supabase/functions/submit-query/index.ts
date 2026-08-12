@@ -7,6 +7,9 @@ import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { authenticateApp, serviceClient } from '../_shared/app-auth.ts';
 import { enforceRateLimit, LIMITS } from '../_shared/rate-limit.ts';
+import { ADMIN_LANGUAGE, isSupportedLanguage } from '../_shared/languages.ts';
+import { resolveUserLanguage } from '../_shared/user-language.ts';
+import { translateInBackground } from '../_shared/translate.ts';
 
 const BodySchema = z.object({
   app_name: z.string().min(1),
@@ -17,6 +20,9 @@ const BodySchema = z.object({
   is_paid: z.boolean(),
   revenuecat_id: z.string().trim().min(1).max(200),
   app_version: z.string().trim().min(1).max(40),
+  // The language this message is written in. Sent by the SDK on every write
+  // so the stored preference stays fresh even if set-language never landed.
+  language: z.string().trim().refine(isSupportedLanguage).optional(),
 });
 
 Deno.serve(async (req) => {
@@ -58,6 +64,13 @@ Deno.serve(async (req) => {
   ]);
   if (limited) return limited;
 
+  const language = await resolveUserLanguage(
+    supabase,
+    app.id,
+    body.revenuecat_id,
+    body.language,
+  );
+
   const { data: query, error: queryError } = await supabase
     .from('queries')
     .insert({
@@ -76,16 +89,28 @@ Deno.serve(async (req) => {
     return errorResponse('Could not create query', 500);
   }
 
-  const { error: messageError } = await supabase.from('messages').insert({
-    query_id: query.id,
-    sender: 'user',
-    body: body.message,
-  });
+  const needsTranslation = language !== ADMIN_LANGUAGE;
 
-  if (messageError) {
+  const { data: message, error: messageError } = await supabase
+    .from('messages')
+    .insert({
+      query_id: query.id,
+      sender: 'user',
+      body: body.message,
+      body_language: language,
+      translation_status: needsTranslation ? 'pending' : 'skipped',
+    })
+    .select('id')
+    .single();
+
+  if (messageError || !message) {
     console.error('submit-query: message insert failed', messageError);
     return errorResponse('Could not create query', 500);
   }
+
+  // After the row exists, never before it: the user's query is filed whether
+  // or not the translation ever arrives.
+  if (needsTranslation) translateInBackground(supabase, message.id);
 
   // The submitter has read their own first message.
   await supabase.from('read_receipts').upsert({

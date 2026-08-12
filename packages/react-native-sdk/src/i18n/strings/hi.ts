@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const hi: StringTable = {
+  'home.title': 'सहायता',
+  'home.subtitle': 'बातचीत शुरू करें — हम यहीं जवाब देते हैं।',
+  'home.close': 'सहायता बंद करें',
+  'home.open': 'खुली',
+  'home.resolved': 'हल हो चुकीं',
+  'home.empty': 'अभी कोई बातचीत नहीं',
+  'home.emptyHint':
+    'आप जो भी भेजेंगे वह टीम तक पहुँचता है, और उनके जवाब इसी विंडो में लौट आते हैं।',
+  'home.noMessages': 'अभी कोई संदेश नहीं',
+  'home.you': 'आप',
+  'home.threadA11y': 'बातचीत: {type}',
+  'home.threadUnreadA11y': 'बातचीत: {type}, {count} अपठित',
+  'home.newA11y': 'नया: {type}',
+  'home.language': 'भाषा',
+
+  'type.feedback': 'फ़ीडबैक',
+  'type.feature_request': 'फ़ीचर अनुरोध',
+  'type.bug_report': 'बग रिपोर्ट',
+  'hint.feedback': 'हमें बताएँ आप क्या सोचते हैं',
+  'hint.feature_request': 'कोई सुधार सुझाएँ',
+  'hint.bug_report': 'कुछ काम नहीं कर रहा',
+  'prompt.feedback': 'हमें क्या जानना चाहिए?',
+  'prompt.feature_request': 'आप क्या देखना चाहेंगे?',
+  'prompt.bug_report': 'क्या हुआ, और आपको क्या उम्मीद थी?',
+  'sub.feedback': 'अच्छा हो या बुरा — यह सीधे टीम तक जाता है।',
+  'sub.feature_request': 'बताएँ आप क्या करने की कोशिश कर रहे हैं।',
+  'sub.bug_report': 'चरण, स्क्रीन और आपकी अपेक्षा — सब मदद करते हैं।',
+
+  'compose.back': 'बातचीत पर वापस जाएँ',
+  'compose.sent': 'भेज दिया',
+  'compose.sentHint':
+    'हम यहीं जवाब देंगे। बातचीत आपको “खुली” में मिलेगी, और जवाब आने पर बटन पर निशान दिखेगा।',
+  'compose.done': 'हो गया',
+  'compose.send': 'भेजें',
+  'compose.sending': 'भेजा जा रहा है…',
+  'compose.minChars': 'कम से कम {count} अक्षर',
+
+  'thread.support': 'सहायता',
+  'thread.new': 'नया',
+  'thread.resolvedAt': 'हल हो चुकी · {date}',
+  'thread.readOnly': 'यह बातचीत हल हो चुकी है और केवल पढ़ने के लिए है',
+  'thread.placeholder': 'जवाब लिखें…',
+  'thread.sendA11y': 'जवाब भेजें',
+  'thread.sendingA11y': 'भेजा जा रहा है',
+  'thread.translating': 'अनुवाद हो रहा है…',
+
+  'status.open': 'खुली',
+  'status.resolved': 'हल हो चुकी',
+
+  'error.tryAgain': 'फिर कोशिश करें',
+  'error.rateLimited': 'बहुत ज़्यादा अनुरोध — बाद में कोशिश करें',
+  'error.offline': 'आप ऑफ़लाइन हैं — अपना कनेक्शन जाँचें',
+  'error.sendFailed': 'भेजा नहीं जा सका — फिर कोशिश करें',
+  'error.loadFailed': 'आपकी बातचीत लोड नहीं हो सकी',
+  'error.unavailable': 'सहायता अभी उपलब्ध नहीं है',
+  'error.loadRateLimited': 'बहुत ज़्यादा अनुरोध — थोड़ी देर में कोशिश करें',
+
+  'lang.title': 'अपनी भाषा चुनें',
+  'lang.subtitle':
+    'जिस भाषा में सहज हों उसी में लिखें — हम आपके और सहायता टीम के बीच अनुवाद करते हैं।',
+  'lang.continue': 'जारी रखें',
+  'lang.change': 'भाषा बदलें',
+  'lang.saveFailed': 'सहेजा नहीं जा सका — फिर कोशिश करें',
+
+  'time.justNow': 'अभी',
+  'time.minutes': '{count} मिनट पहले',
+  'time.hours': '{count} घंटे पहले',
+  'time.days': '{count} दिन पहले',
+  'time.weeks': '{count} सप्ताह पहले',
+  'time.months': '{count} माह पहले',
+  'time.years': '{count} वर्ष पहले',
+  'time.today': 'आज',
+  'time.yesterday': 'कल',
+};

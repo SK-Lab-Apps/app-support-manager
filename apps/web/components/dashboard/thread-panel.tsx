@@ -11,14 +11,17 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getSupabaseEnv } from "@/lib/supabase/env";
+import { isTranslated, languageName } from "@/lib/languages";
 import type {
   MessageRow,
   PushSubscriptionRow,
   QueryListRow,
+  TranslationStatus,
 } from "@/lib/types";
 import { absoluteTime, cn, formatDate, relativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  LanguageChip,
   PaidTag,
   PushStatusChip,
   StatusIndicator,
@@ -34,6 +37,9 @@ interface RawMessage {
   sender: "user" | "admin";
   admin_id: string | null;
   body: string;
+  body_translated: string | null;
+  body_language: string | null;
+  translation_status: TranslationStatus;
   created_at: string;
   admins: { display_name: string } | null;
 }
@@ -66,9 +72,13 @@ export function ThreadPanel({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  // Message ids the admin has expanded to see the user's actual words.
+  const [showOriginal, setShowOriginal] = useState<Set<string>>(new Set());
+  const [retrying, setRetrying] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const resolved = row.status === "resolved";
+  const translating = isTranslated(row.user_language);
 
   const markRead = useCallback(async () => {
     await supabase.from("read_receipts").upsert({
@@ -83,7 +93,7 @@ export function ThreadPanel({
     const { data, error } = await supabase
       .from("messages")
       .select(
-        "id, query_id, sender, admin_id, body, created_at, admins(display_name)",
+        "id, query_id, sender, admin_id, body, body_translated, body_language, translation_status, created_at, admins(display_name)",
       )
       .eq("query_id", row.id)
       .order("created_at", { ascending: true });
@@ -99,6 +109,9 @@ export function ThreadPanel({
         sender: m.sender,
         admin_id: m.admin_id,
         body: m.body,
+        body_translated: m.body_translated,
+        body_language: m.body_language,
+        translation_status: m.translation_status,
         created_at: m.created_at,
         admin_name: m.admins?.display_name ?? null,
       })),
@@ -153,6 +166,21 @@ export function ThreadPanel({
       .on(
         "postgres_changes",
         {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `query_id=eq.${row.id}`,
+        },
+        () => {
+          // A translation landing on a message already on screen. Refetch
+          // only — this is not new activity, so it must not clear the
+          // unread marker or move the read receipt.
+          void fetchMessages();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "*",
           schema: "public",
           table: "read_receipts",
@@ -199,48 +227,79 @@ export function ThreadPanel({
 
     setSending(true);
     setSendError(false);
-    const { error } = await supabase.from("messages").insert({
-      query_id: row.id,
-      sender: "admin",
-      admin_id: adminId,
-      body,
-    });
+    const { data: inserted, error } = await supabase
+      .from("messages")
+      .insert({
+        query_id: row.id,
+        sender: "admin",
+        admin_id: adminId,
+        body,
+        body_language: "en",
+        translation_status: translating ? "pending" : "skipped",
+      })
+      .select("id")
+      .single();
     setSending(false);
 
-    if (error) {
+    if (error || !inserted) {
       setSendError(true);
       return;
     }
     setDraft("");
     await fetchMessages();
     onChanged();
-    void notifyUser();
+    // Translate first, then notify: the push copy is localized either way,
+    // but a user who taps it should land on a thread that already reads in
+    // their language. Neither call blocks the reply, which is committed.
+    void translateAndNotify(inserted.id);
   }
 
-  /**
-   * Best-effort push notification for the reply that was just saved.
-   * Deliberately not awaited: a user who declined notifications, has no
-   * token, or an Expo outage must never affect sending.
-   */
-  async function notifyUser() {
+  /** Calls one of the post-reply edge functions with the admin's own JWT. */
+  async function callFunction(name: string, body: unknown): Promise<boolean> {
     try {
       const { url, anonKey } = getSupabaseEnv();
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch(`${url}/functions/v1/send-push`, {
+      if (!session) return false;
+      const response = await fetch(`${url}/functions/v1/${name}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: anonKey,
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ query_id: row.id }),
+        body: JSON.stringify(body),
       });
+      return response.ok;
     } catch {
-      // Reply is already committed; delivery is opportunistic.
+      return false;
     }
+  }
+
+  /**
+   * Best-effort follow-ups for the reply that was just saved. Deliberately
+   * not awaited by the send handler: a translation outage, a user who
+   * declined notifications, or an Expo outage must never affect sending.
+   *
+   * Both steps have a server-side backstop — the pg_cron sweep picks up a
+   * translation that never happened — so a closed tab costs a delay, not a
+   * dropped translation.
+   */
+  async function translateAndNotify(messageId: string) {
+    if (translating) {
+      await callFunction("translate-message", { message_id: messageId });
+      await fetchMessages();
+    }
+    await callFunction("send-push", { query_id: row.id });
+  }
+
+  /** Manual retry for a translation that failed or is stuck. */
+  async function retryTranslation(messageId: string) {
+    setRetrying(messageId);
+    await callFunction("translate-message", { message_id: messageId });
+    await fetchMessages();
+    setRetrying(null);
   }
 
   async function setStatus(next: "open" | "resolved") {
@@ -316,6 +375,9 @@ export function ThreadPanel({
           <span className="tnum" title={absoluteTime(row.created_at)}>
             {relativeTime(row.created_at)}
           </span>
+          {translating && row.user_language && (
+            <LanguageChip language={row.user_language} />
+          )}
           <PushStatusChip subscription={pushSubscription} />
         </div>
       </div>
@@ -341,42 +403,102 @@ export function ThreadPanel({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={cn(
-                  "flex max-w-[90%] flex-col gap-1 sm:max-w-[85%]",
-                  m.sender === "admin" ? "ml-auto items-end" : "items-start",
-                )}
-              >
-                {m.sender === "admin" && (
-                  <span className="text-2xs text-tertiary">
-                    {m.admin_name ?? "Admin"}
-                  </span>
-                )}
+            {messages.map((m) => {
+              // English first, always: a user message reads as its
+              // translation, ours as what we typed. The original is one
+              // click away rather than shown side by side, which would
+              // double the length of every thread.
+              const original = m.sender === "user" && m.body_language !== "en";
+              const english =
+                m.sender === "user" ? (m.body_translated ?? m.body) : m.body;
+              const expanded = showOriginal.has(m.id);
+              const pending = m.translation_status === "pending";
+              const failed = m.translation_status === "failed";
+
+              return (
                 <div
+                  key={m.id}
                   className={cn(
-                    "rounded-card border px-3 py-2 text-sm leading-relaxed",
-                    m.sender === "admin"
-                      ? "border-transparent bg-accent-muted text-primary"
-                      : "border-border bg-surface text-primary md:bg-bg",
+                    "flex max-w-[90%] flex-col gap-1 sm:max-w-[85%]",
+                    m.sender === "admin" ? "ml-auto items-end" : "items-start",
                   )}
                 >
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                </div>
-                <span
-                  className="tnum text-2xs text-tertiary"
-                  title={absoluteTime(m.created_at)}
-                >
-                  {relativeTime(m.created_at)}
-                  {m.id === lastSeenAdminMessageId && userLastReadAt && (
-                    <span title={`Seen ${absoluteTime(userLastReadAt)}`}>
-                      {" · Seen"}
+                  {m.sender === "admin" && (
+                    <span className="text-2xs text-tertiary">
+                      {m.admin_name ?? "Admin"}
                     </span>
                   )}
-                </span>
-              </div>
-            ))}
+                  <div
+                    className={cn(
+                      "rounded-card border px-3 py-2 text-sm leading-relaxed",
+                      m.sender === "admin"
+                        ? "border-transparent bg-accent-muted text-primary"
+                        : "border-border bg-surface text-primary md:bg-bg",
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap break-words">{english}</p>
+                    {expanded && (
+                      <p className="mt-2 whitespace-pre-wrap break-words border-t border-border pt-2 text-secondary">
+                        {m.body}
+                      </p>
+                    )}
+                  </div>
+
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-tertiary">
+                    <span className="tnum" title={absoluteTime(m.created_at)}>
+                      {relativeTime(m.created_at)}
+                    </span>
+
+                    {m.id === lastSeenAdminMessageId && userLastReadAt && (
+                      <span title={`Seen ${absoluteTime(userLastReadAt)}`}>
+                        Seen
+                      </span>
+                    )}
+
+                    {/* A user message we translated: say so, and offer the
+                        words they actually wrote. */}
+                    {original && !pending && !failed && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowOriginal((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(m.id)) next.delete(m.id);
+                            else next.add(m.id);
+                            return next;
+                          })
+                        }
+                        className="text-2xs text-tertiary underline decoration-dotted underline-offset-2 transition-colors duration-fast hover:text-secondary"
+                      >
+                        {expanded
+                          ? "Hide original"
+                          : `Translated from ${languageName(m.body_language)}`}
+                      </button>
+                    )}
+
+                    {pending && <span>Translating…</span>}
+
+                    {failed && (
+                      <>
+                        <span className="text-status-danger">
+                          {m.sender === "user"
+                            ? "Shown untranslated"
+                            : "Sent untranslated"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void retryTranslation(m.id)}
+                          disabled={retrying === m.id}
+                          className="text-2xs text-tertiary underline decoration-dotted underline-offset-2 transition-colors duration-fast hover:text-secondary disabled:opacity-50"
+                        >
+                          {retrying === m.id ? "Retrying…" : "Retry"}
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
 
             {resolved && row.resolved_at && (
               <div className="my-2 flex items-center gap-3">
@@ -408,7 +530,11 @@ export function ThreadPanel({
                   void handleSend(e);
                 }
               }}
-              placeholder="Reply to this query"
+              placeholder={
+                translating
+                  ? `Reply in English — sent as ${languageName(row.user_language)}`
+                  : "Reply to this query"
+              }
               aria-label="Reply"
               rows={3}
               maxLength={ADMIN_MAX}

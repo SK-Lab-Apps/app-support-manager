@@ -34,6 +34,14 @@ supabase functions deploy post-message
 supabase functions deploy mark-read
 supabase functions deploy register-push
 supabase functions deploy send-push
+supabase functions deploy set-language
+supabase functions deploy translate-message
+```
+
+Translation needs an OpenAI API key ([platform.openai.com](https://platform.openai.com)):
+
+```sh
+supabase secrets set OPENAI_API_KEY=sk-...
 ```
 
 Then create `apps/web/.env.local` (template in `apps/web/env.example`) with your project's URL and anon key, and run the dashboard:
@@ -58,6 +66,25 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 ```
 
 **SDK:** no env vars — configuration is passed as props (see below). Keep the API key out of source control (e.g. `expo-constants` extra fields or react-native-config).
+
+**Edge Functions (`supabase secrets set`):**
+
+| Secret | Required for | Notes |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Translation | Without it, messages are stored and delivered untranslated and the dashboard shows a retry. |
+| `TRANSLATION_MODEL` | — | Defaults to `gpt-5.6-luna`. Set it to trade cost for quality without redeploying. |
+| `RESEND_API_KEY`, `ESCALATION_CRON_TOKEN`, `DASHBOARD_URL` | Unread escalation | See the escalation section. `ESCALATION_CRON_TOKEN` also authenticates the translation sweep. |
+
+## Multilingual support
+
+End users write in the language they pick in the SDK; admins read and write English. Nobody sees a language they didn't choose.
+
+- **First open** shows a one-time language prompt, pre-selected from `defaultLanguage` (if the host app passes one) or the device locale. The choice is stored server-side per `revenuecat_id`, so it survives a reinstall and follows the user across devices, and it can be changed later from the sheet.
+- **Every message is stored twice**: `body` as the sender typed it, `body_translated` as its counterpart. The dashboard shows user messages in English with the original one click away; the SDK shows admin replies in the user's language.
+- **Translation never blocks a send.** The message row is written first and translated a moment later. If the provider is down, the message still arrives — untranslated, with a badge and a retry in the dashboard — and a `pg_cron` job sweeps anything that was missed. Push notification copy is localized from a static string table, not the model.
+- **List and search stay English**: the query list's excerpt is the translated text, and search matches against both renderings, so an English search term finds a German thread.
+
+Adding a language means touching three tables that are deliberately kept in sync by hand — `supabase/functions/_shared/languages.ts`, `packages/react-native-sdk/src/i18n/languages.ts`, and a new string table under `packages/react-native-sdk/src/i18n/strings/` (the compiler will tell you which keys are missing).
 
 ## Production
 
@@ -103,12 +130,19 @@ import { SupportButton } from '@appsupportkit/support-sdk';
     appVersion: '2.4.1',
   }}
   theme="dark"                               // or "light"; default "dark"
+  defaultLanguage="fr"                       // optional; pre-selects the language prompt
 />
 ```
 
 Peer dependencies: `react`, `react-native`, `react-native-safe-area-context`. The bottom sheet is built on the core `Modal`/`Animated` APIs — no gesture-handler/reanimated native dependencies to install.
 
-The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens a sheet with: new-query actions, the user's open and resolved conversations, a composer with a live 10–300 character counter, and read-only resolved threads showing who resolved them.
+The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens a sheet with: new-query actions, the user's open and resolved conversations, a composer with a live 10–300 character counter, and read-only resolved threads showing when they were resolved.
+
+End users never see which admin they are talking to — replies are attributed to the support team, in notifications and in the thread alike, and admin display names are not included in the SDK's API responses at all. The dashboard still shows who wrote and who resolved what.
+
+### Language
+
+The whole sheet — chrome and messages alike — renders in the language the user picks the first time they open support. Pass `defaultLanguage` when your app already knows what they read; the SDK falls back to the device locale, and in both cases it is only a pre-selection, since the user still confirms. Supported: English, Spanish, French, German, Dutch, Portuguese, Italian, Polish, Turkish, Russian, Japanese, Korean, Simplified Chinese, Hindi (`SUPPORTED_LANGUAGES` and `LANGUAGE_LABELS` are exported if you want to build your own picker).
 
 ### Launcher appearance
 

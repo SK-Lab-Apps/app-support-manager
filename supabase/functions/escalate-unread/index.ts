@@ -17,6 +17,7 @@
 import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/app-auth.ts';
+import { ADMIN_LANGUAGE, languageName } from '../_shared/languages.ts';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const DEFAULT_THRESHOLD_HOURS = 5;
@@ -41,7 +42,10 @@ interface OverdueRow {
   app_name: string;
   user_name: string;
   query_type: string;
+  /** English rendering — the RPC resolves it (see migration 20260812000001). */
   body: string;
+  /** The language the user actually wrote in. */
+  body_language: string;
   created_at: string;
   is_reply: boolean;
 }
@@ -89,6 +93,14 @@ function renderEmail(
     ? `${dashboardUrl.replace(/\/$/, '')}/apps/${first.app_id}`
     : null;
 
+  // The bodies below are the English rendering. Say so when the user wrote in
+  // something else, so a reader knows the wording is a translation and that
+  // their reply will be translated back.
+  const translatedFrom =
+    first.body_language && first.body_language !== ADMIN_LANGUAGE
+      ? languageName(first.body_language)
+      : null;
+
   const messageLines = rows.map(
     (r) =>
       `${new Date(r.created_at).toUTCString()} — ${r.body}`,
@@ -101,6 +113,7 @@ function renderEmail(
     `User:   ${first.user_name}`,
     `Type:   ${typeLabel}`,
     `Status: ${context}`,
+    ...(translatedFrom ? [`Language: ${translatedFrom} (shown translated)`] : []),
     '',
     ...messageLines,
     ...(link ? ['', `Open the dashboard: ${link}`] : []),
@@ -117,6 +130,11 @@ function renderEmail(
         <tr><td style="padding:2px 16px 2px 0;color:#6E6E76">User</td><td>${escapeHtml(first.user_name)}</td></tr>
         <tr><td style="padding:2px 16px 2px 0;color:#6E6E76">Type</td><td>${escapeHtml(typeLabel)}</td></tr>
         <tr><td style="padding:2px 16px 2px 0;color:#6E6E76">Context</td><td>${escapeHtml(context)}</td></tr>
+        ${
+          translatedFrom
+            ? `<tr><td style="padding:2px 16px 2px 0;color:#6E6E76">Language</td><td>${escapeHtml(translatedFrom)} <span style="color:#A0A0A8">(shown translated)</span></td></tr>`
+            : ''
+        }
       </table>
       ${rows
         .map(

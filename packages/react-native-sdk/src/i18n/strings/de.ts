@@ -1,0 +1,78 @@
+import type { StringTable } from './en';
+
+export const de: StringTable = {
+  'home.title': 'Support',
+  'home.subtitle': 'Starte ein Gespräch — wir antworten direkt hier.',
+  'home.close': 'Support schließen',
+  'home.open': 'Offen',
+  'home.resolved': 'Erledigt',
+  'home.empty': 'Noch keine Gespräche',
+  'home.emptyHint':
+    'Alles, was du sendest, landet beim Team, und die Antworten kommen in dieses Fenster zurück.',
+  'home.noMessages': 'Noch keine Nachrichten',
+  'home.you': 'Du',
+  'home.threadA11y': 'Gespräch: {type}',
+  'home.threadUnreadA11y': 'Gespräch: {type}, {count} ungelesen',
+  'home.newA11y': 'Neu: {type}',
+  'home.language': 'Sprache',
+
+  'type.feedback': 'Feedback',
+  'type.feature_request': 'Funktionswunsch',
+  'type.bug_report': 'Fehlerbericht',
+  'hint.feedback': 'Sag uns, was du denkst',
+  'hint.feature_request': 'Schlage eine Verbesserung vor',
+  'hint.bug_report': 'Etwas funktioniert nicht',
+  'prompt.feedback': 'Was sollten wir wissen?',
+  'prompt.feature_request': 'Was würdest du dir wünschen?',
+  'prompt.bug_report': 'Was ist passiert, und was hattest du erwartet?',
+  'sub.feedback': 'Gut oder schlecht — es geht direkt ans Team.',
+  'sub.feature_request': 'Sag uns, was du erreichen möchtest.',
+  'sub.bug_report':
+    'Schritte, Bildschirm und deine Erwartung helfen uns weiter.',
+
+  'compose.back': 'Zurück zu den Gesprächen',
+  'compose.sent': 'Gesendet',
+  'compose.sentHint':
+    'Wir antworten direkt hier. Du findest das Gespräch unter Offen, und der Button zeigt ein Abzeichen, sobald wir geantwortet haben.',
+  'compose.done': 'Fertig',
+  'compose.send': 'Senden',
+  'compose.sending': 'Wird gesendet…',
+  'compose.minChars': 'Mindestens {count} Zeichen',
+
+  'thread.support': 'Support',
+  'thread.new': 'Neu',
+  'thread.resolvedAt': 'Erledigt · {date}',
+  'thread.readOnly': 'Dieses Gespräch ist erledigt und schreibgeschützt',
+  'thread.placeholder': 'Antwort schreiben…',
+  'thread.sendA11y': 'Antwort senden',
+  'thread.sendingA11y': 'Wird gesendet',
+  'thread.translating': 'Wird übersetzt…',
+
+  'status.open': 'Offen',
+  'status.resolved': 'Erledigt',
+
+  'error.tryAgain': 'Erneut versuchen',
+  'error.rateLimited': 'Zu viele Anfragen — versuche es später noch einmal',
+  'error.offline': 'Du bist offline — prüfe deine Verbindung',
+  'error.sendFailed': 'Senden fehlgeschlagen — versuche es noch einmal',
+  'error.loadFailed': 'Deine Gespräche konnten nicht geladen werden',
+  'error.unavailable': 'Der Support ist gerade nicht verfügbar',
+  'error.loadRateLimited': 'Zu viele Anfragen — versuche es gleich noch einmal',
+
+  'lang.title': 'Wähle deine Sprache',
+  'lang.subtitle':
+    'Schreib in der Sprache, die dir liegt — wir übersetzen zwischen dir und dem Support-Team.',
+  'lang.continue': 'Weiter',
+  'lang.change': 'Sprache ändern',
+  'lang.saveFailed': 'Speichern fehlgeschlagen — versuche es noch einmal',
+
+  'time.justNow': 'gerade eben',
+  'time.minutes': 'vor {count} Min.',
+  'time.hours': 'vor {count} Std.',
+  'time.days': 'vor {count} T.',
+  'time.weeks': 'vor {count} Wo.',
+  'time.months': 'vor {count} Mon.',
+  'time.years': 'vor {count} J.',
+  'time.today': 'Heute',
+  'time.yesterday': 'Gestern',
+};

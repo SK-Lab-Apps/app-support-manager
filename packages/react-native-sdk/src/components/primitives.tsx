@@ -9,9 +9,9 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import type { Translator } from '../i18n';
 import type { SupportTheme } from '../theme';
 import type { QueryStatus, QueryType } from '../types';
-import { QUERY_TYPE_LABEL } from '../types';
 import { AlertCircleIcon, ChatIcon, PlusCircleIcon } from './icons';
 
 export function typeIcon(type: QueryType, color: string, size = 15): ReactNode {
@@ -62,9 +62,11 @@ export function TypeGlyph({
 export function StatusIndicator({
   status,
   theme,
+  strings,
 }: {
   status: QueryStatus;
   theme: SupportTheme;
+  strings: Translator;
 }) {
   const color =
     status === 'open' ? theme.colors.statusOpen : theme.colors.statusResolved;
@@ -74,7 +76,7 @@ export function StatusIndicator({
         style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }}
       />
       <Text style={{ fontSize: 12, color }}>
-        {status === 'open' ? 'Open' : 'Resolved'}
+        {strings.t(status === 'open' ? 'status.open' : 'status.resolved')}
       </Text>
     </View>
   );
@@ -351,17 +353,23 @@ export function ErrorState({
   message,
   onRetry,
   theme,
+  strings,
 }: {
   message: string;
   onRetry: () => void;
   theme: SupportTheme;
+  strings: Translator;
 }) {
   return (
     <View style={{ alignItems: 'center', paddingVertical: 40, gap: 12 }}>
       <Text style={{ fontSize: 14, color: theme.colors.textSecondary }}>
         {message}
       </Text>
-      <SecondaryButton label="Try again" onPress={onRetry} theme={theme} />
+      <SecondaryButton
+        label={strings.t('error.tryAgain')}
+        onPress={onRetry}
+        theme={theme}
+      />
     </View>
   );
 }
@@ -452,9 +460,11 @@ export const textStyles = {
 export function TypeChipView({
   type,
   theme,
+  strings,
 }: {
   type: QueryType;
   theme: SupportTheme;
+  strings: Translator;
 }) {
   const color = typeColor(type, theme);
   return (
@@ -472,7 +482,7 @@ export function TypeChipView({
     >
       {typeIcon(type, color, 11)}
       <Text style={{ fontSize: 11.5, fontWeight: '600', color }}>
-        {QUERY_TYPE_LABEL[type]}
+        {strings.t(`type.${type}`)}
       </Text>
     </View>
   );

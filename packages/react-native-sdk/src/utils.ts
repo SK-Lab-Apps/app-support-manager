@@ -1,32 +1,37 @@
+import type { Translator } from './i18n';
+
+// Dates and times follow the language the user picked, not the device's:
+// a sheet that says "Traduction…" above "2 days ago" reads as broken.
+
 /** "2h ago" relative time — mirrors the web dashboard's formatting. */
-export function relativeTime(iso: string): string {
+export function relativeTime(iso: string, strings: Translator): string {
   const then = new Date(iso).getTime();
   const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return strings.t('time.justNow');
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return strings.t('time.minutes', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return strings.t('time.hours', { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return strings.t('time.days', { count: days });
   const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
+  if (weeks < 5) return strings.t('time.weeks', { count: weeks });
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+  if (months < 12) return strings.t('time.months', { count: months });
+  return strings.t('time.years', { count: Math.floor(days / 365) });
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+export function formatDate(iso: string, strings: Translator): string {
+  return new Date(iso).toLocaleDateString(strings.locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 }
 
-/** "14:32" in the device's locale — shown under a group of messages. */
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, {
+/** "14:32" in the user's locale — shown under a group of messages. */
+export function formatTime(iso: string, strings: Translator): string {
+  return new Date(iso).toLocaleTimeString(strings.locale, {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -43,13 +48,13 @@ export function isSameDay(a: string, b: string): boolean {
 }
 
 /** Date separator label: Today / Yesterday / "Mon, 5 Jan". */
-export function dayLabel(iso: string): string {
+export function dayLabel(iso: string, strings: Translator): string {
   const now = new Date();
-  if (isSameDay(iso, now.toISOString())) return 'Today';
+  if (isSameDay(iso, now.toISOString())) return strings.t('time.today');
   const yesterday = new Date(now.getTime() - 86_400_000);
-  if (isSameDay(iso, yesterday.toISOString())) return 'Yesterday';
+  if (isSameDay(iso, yesterday.toISOString())) return strings.t('time.yesterday');
   const date = new Date(iso);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(strings.locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',

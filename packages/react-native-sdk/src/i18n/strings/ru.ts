@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const ru: StringTable = {
+  'home.title': 'Поддержка',
+  'home.subtitle': 'Начните разговор — мы ответим прямо здесь.',
+  'home.close': 'Закрыть поддержку',
+  'home.open': 'Открытые',
+  'home.resolved': 'Решённые',
+  'home.empty': 'Пока нет разговоров',
+  'home.emptyHint':
+    'Всё, что вы отправите, попадёт к команде, а ответы вернутся в это окно.',
+  'home.noMessages': 'Пока нет сообщений',
+  'home.you': 'Вы',
+  'home.threadA11y': 'Разговор: {type}',
+  'home.threadUnreadA11y': 'Разговор: {type}, непрочитанных: {count}',
+  'home.newA11y': 'Новое: {type}',
+  'home.language': 'Язык',
+
+  'type.feedback': 'Отзыв',
+  'type.feature_request': 'Запрос функции',
+  'type.bug_report': 'Сообщение об ошибке',
+  'hint.feedback': 'Расскажите, что вы думаете',
+  'hint.feature_request': 'Предложите улучшение',
+  'hint.bug_report': 'Что-то не работает',
+  'prompt.feedback': 'Что нам следует знать?',
+  'prompt.feature_request': 'Что вы хотели бы увидеть?',
+  'prompt.bug_report': 'Что произошло и чего вы ожидали?',
+  'sub.feedback': 'Хороший или плохой — он идёт прямо к команде.',
+  'sub.feature_request': 'Расскажите, что вы пытаетесь сделать.',
+  'sub.bug_report': 'Шаги, экран и ваши ожидания — всё это помогает.',
+
+  'compose.back': 'Назад к разговорам',
+  'compose.sent': 'Отправлено',
+  'compose.sentHint':
+    'Мы ответим прямо здесь. Разговор появится в разделе «Открытые», а на кнопке загорится значок, когда мы ответим.',
+  'compose.done': 'Готово',
+  'compose.send': 'Отправить',
+  'compose.sending': 'Отправка…',
+  'compose.minChars': 'Не менее {count} символов',
+
+  'thread.support': 'Поддержка',
+  'thread.new': 'Новое',
+  'thread.resolvedAt': 'Решено · {date}',
+  'thread.readOnly': 'Этот разговор решён и доступен только для чтения',
+  'thread.placeholder': 'Напишите ответ…',
+  'thread.sendA11y': 'Отправить ответ',
+  'thread.sendingA11y': 'Отправка',
+  'thread.translating': 'Перевод…',
+
+  'status.open': 'Открыт',
+  'status.resolved': 'Решён',
+
+  'error.tryAgain': 'Повторить',
+  'error.rateLimited': 'Слишком много запросов — попробуйте позже',
+  'error.offline': 'Нет подключения — проверьте сеть',
+  'error.sendFailed': 'Не удалось отправить — попробуйте ещё раз',
+  'error.loadFailed': 'Не удалось загрузить ваши разговоры',
+  'error.unavailable': 'Поддержка сейчас недоступна',
+  'error.loadRateLimited': 'Слишком много запросов — попробуйте через минуту',
+
+  'lang.title': 'Выберите язык',
+  'lang.subtitle':
+    'Пишите на удобном вам языке — мы переводим между вами и командой поддержки.',
+  'lang.continue': 'Продолжить',
+  'lang.change': 'Изменить язык',
+  'lang.saveFailed': 'Не удалось сохранить — попробуйте ещё раз',
+
+  'time.justNow': 'только что',
+  'time.minutes': '{count} мин назад',
+  'time.hours': '{count} ч назад',
+  'time.days': '{count} дн назад',
+  'time.weeks': '{count} нед назад',
+  'time.months': '{count} мес назад',
+  'time.years': '{count} г назад',
+  'time.today': 'Сегодня',
+  'time.yesterday': 'Вчера',
+};

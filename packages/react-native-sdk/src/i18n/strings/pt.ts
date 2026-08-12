@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const pt: StringTable = {
+  'home.title': 'Suporte',
+  'home.subtitle': 'Inicie uma conversa — respondemos aqui mesmo.',
+  'home.close': 'Fechar suporte',
+  'home.open': 'Abertas',
+  'home.resolved': 'Resolvidas',
+  'home.empty': 'Ainda não há conversas',
+  'home.emptyHint':
+    'Tudo o que você enviar chega à equipe, e as respostas voltam para esta janela.',
+  'home.noMessages': 'Ainda não há mensagens',
+  'home.you': 'Você',
+  'home.threadA11y': 'Conversa: {type}',
+  'home.threadUnreadA11y': 'Conversa: {type}, {count} não lidas',
+  'home.newA11y': 'Novo: {type}',
+  'home.language': 'Idioma',
+
+  'type.feedback': 'Feedback',
+  'type.feature_request': 'Sugestão de recurso',
+  'type.bug_report': 'Relato de erro',
+  'hint.feedback': 'Conte o que você acha',
+  'hint.feature_request': 'Sugira uma melhoria',
+  'hint.bug_report': 'Algo não está funcionando',
+  'prompt.feedback': 'O que precisamos saber?',
+  'prompt.feature_request': 'O que você gostaria de ver?',
+  'prompt.bug_report': 'O que aconteceu e o que você esperava?',
+  'sub.feedback': 'Bom ou ruim — vai direto para a equipe.',
+  'sub.feature_request': 'Conte o que você está tentando fazer.',
+  'sub.bug_report': 'Os passos, a tela e o que você esperava ajudam muito.',
+
+  'compose.back': 'Voltar às conversas',
+  'compose.sent': 'Enviado',
+  'compose.sentHint':
+    'Vamos responder aqui mesmo. Você encontra a conversa em Abertas, e o botão mostra um aviso quando respondermos.',
+  'compose.done': 'Concluído',
+  'compose.send': 'Enviar',
+  'compose.sending': 'Enviando…',
+  'compose.minChars': 'Pelo menos {count} caracteres',
+
+  'thread.support': 'Suporte',
+  'thread.new': 'Novo',
+  'thread.resolvedAt': 'Resolvida · {date}',
+  'thread.readOnly': 'Esta conversa está resolvida e é somente leitura',
+  'thread.placeholder': 'Escreva uma resposta…',
+  'thread.sendA11y': 'Enviar resposta',
+  'thread.sendingA11y': 'Enviando',
+  'thread.translating': 'Traduzindo…',
+
+  'status.open': 'Aberta',
+  'status.resolved': 'Resolvida',
+
+  'error.tryAgain': 'Tentar novamente',
+  'error.rateLimited': 'Muitas solicitações — tente novamente mais tarde',
+  'error.offline': 'Você está sem conexão — verifique sua rede',
+  'error.sendFailed': 'Não foi possível enviar — tente novamente',
+  'error.loadFailed': 'Não foi possível carregar suas conversas',
+  'error.unavailable': 'O suporte está indisponível no momento',
+  'error.loadRateLimited': 'Muitas solicitações — tente novamente em instantes',
+
+  'lang.title': 'Escolha seu idioma',
+  'lang.subtitle':
+    'Escreva no idioma que preferir — traduzimos entre você e a equipe de suporte.',
+  'lang.continue': 'Continuar',
+  'lang.change': 'Alterar idioma',
+  'lang.saveFailed': 'Não foi possível salvar — tente novamente',
+
+  'time.justNow': 'agora mesmo',
+  'time.minutes': 'há {count} min',
+  'time.hours': 'há {count} h',
+  'time.days': 'há {count} d',
+  'time.weeks': 'há {count} sem',
+  'time.months': 'há {count} meses',
+  'time.years': 'há {count} anos',
+  'time.today': 'Hoje',
+  'time.yesterday': 'Ontem',
+};

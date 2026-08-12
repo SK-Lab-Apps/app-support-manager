@@ -1,4 +1,5 @@
 import type { StyleProp, ViewStyle } from 'react-native';
+import type { Language } from './i18n/languages';
 
 export type QueryType = 'feedback' | 'feature_request' | 'bug_report';
 export type QueryStatus = 'open' | 'resolved';
@@ -71,23 +72,45 @@ export interface SupportButtonProps {
    * installed — it is an optional peer dependency.
    */
   expoProjectId?: string;
+  /**
+   * Pre-selects a language in the picker the first time a user opens support.
+   * Pass it when the host app already knows what the user reads — an in-app
+   * language setting beats the device locale, which is what the SDK falls
+   * back to. It is a default, not an override: the user still chooses, and a
+   * choice they have already made always wins.
+   */
+  defaultLanguage?: Language;
 }
 
 export interface ThreadMessage {
   id: string;
   sender: MessageSender;
+  /**
+   * Already in the user's language: their own messages as they wrote them,
+   * support replies translated. The server does the choosing — see the
+   * get-threads function.
+   */
   body: string;
   created_at: string;
-  admin_name: string | null;
+  /**
+   * A support reply whose translation hasn't landed yet. `body` currently
+   * holds the English original; it will change under the reader shortly, so
+   * the UI says so rather than letting it flicker.
+   */
+  translation_pending: boolean;
 }
 
+/**
+ * Note the absence of any admin identity: end users see one support team,
+ * not the people staffing it, so the names never leave the server. The
+ * dashboard still shows who wrote and who resolved what.
+ */
 export interface Thread {
   id: string;
   type: QueryType;
   status: QueryStatus;
   created_at: string;
   resolved_at: string | null;
-  resolved_by_name: string | null;
   app_version: string;
   unread_count: number;
   last_message: {
@@ -101,8 +124,15 @@ export interface Thread {
 export interface ThreadsResponse {
   threads: Thread[];
   total_unread: number;
+  /** Null when this user has never picked one — the SDK then asks. */
+  language: string | null;
 }
 
+/**
+ * English labels, kept for host apps that render their own entry points.
+ * Inside the sheet the labels come from the string table instead, so they
+ * follow the user's language.
+ */
 export const QUERY_TYPE_LABEL: Record<QueryType, string> = {
   feedback: 'Feedback',
   feature_request: 'Feature request',

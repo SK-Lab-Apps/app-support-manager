@@ -1,7 +1,7 @@
 {
   "name": "@appsupportkit/support-sdk",
-  "version": "0.2.0",
-  "description": "In-app customer support for React Native: feedback, feature requests, and bug reports with two-way threads.",
+  "version": "0.3.0",
+  "description": "In-app customer support for React Native: feedback, feature requests, and bug reports with two-way threads, in the user's own language.",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
   "types": "./lib/typescript/index.d.ts",

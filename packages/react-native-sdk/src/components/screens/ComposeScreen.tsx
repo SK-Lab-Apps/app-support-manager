@@ -8,9 +8,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { Translator } from '../../i18n';
 import type { SupportTheme } from '../../theme';
 import type { QueryType } from '../../types';
-import { QUERY_TYPE_LABEL, USER_MESSAGE_MAX, USER_MESSAGE_MIN } from '../../types';
+import { USER_MESSAGE_MAX, USER_MESSAGE_MIN } from '../../types';
 import { CheckIcon, Chevron } from '../icons';
 import {
   IconButton,
@@ -18,18 +19,6 @@ import {
   textStyles,
   TypeGlyph,
 } from '../primitives';
-
-const PROMPT: Record<QueryType, string> = {
-  feedback: 'What should we know?',
-  feature_request: 'What would you like to see?',
-  bug_report: 'What happened, and what did you expect?',
-};
-
-const SUBTITLE: Record<QueryType, string> = {
-  feedback: 'Good or bad — it goes straight to the team.',
-  feature_request: 'Tell us what you are trying to do.',
-  bug_report: 'Steps, screen, and what you expected all help.',
-};
 
 /** Scales in once on success — the only celebratory motion in the SDK. */
 function SentMark({ theme }: { theme: SupportTheme }) {
@@ -75,11 +64,13 @@ function SentMark({ theme }: { theme: SupportTheme }) {
 
 export function ComposeScreen({
   theme,
+  strings,
   type,
   onBack,
   onSubmit,
 }: {
   theme: SupportTheme;
+  strings: Translator;
   type: QueryType;
   onBack: () => void;
   /** Resolves null on success, or a user-facing error message. */
@@ -119,13 +110,16 @@ export function ComposeScreen({
         }}
       >
         <SentMark theme={theme} />
-        <Text style={textStyles.title(theme)}>Sent</Text>
+        <Text style={textStyles.title(theme)}>{strings.t('compose.sent')}</Text>
         <Text style={[textStyles.secondary(theme), { textAlign: 'center' }]}>
-          We&apos;ll reply right here. You&apos;ll find the conversation under
-          Open, and the button shows a badge when we answer.
+          {strings.t('compose.sentHint')}
         </Text>
         <View style={{ marginTop: 6 }}>
-          <PrimaryButton label="Done" onPress={onBack} theme={theme} />
+          <PrimaryButton
+            label={strings.t('compose.done')}
+            onPress={onBack}
+            theme={theme}
+          />
         </View>
       </View>
     );
@@ -149,15 +143,17 @@ export function ComposeScreen({
         <IconButton
           onPress={onBack}
           theme={theme}
-          accessibilityLabel="Back to conversations"
+          accessibilityLabel={strings.t('compose.back')}
           size={32}
         >
           <Chevron color={theme.colors.textSecondary} direction="left" size={12} />
         </IconButton>
         <TypeGlyph type={type} theme={theme} size={32} />
         <View style={{ flex: 1, gap: 1 }}>
-          <Text style={textStyles.heading(theme)}>{QUERY_TYPE_LABEL[type]}</Text>
-          <Text style={textStyles.meta(theme)}>{SUBTITLE[type]}</Text>
+          <Text style={textStyles.heading(theme)}>
+            {strings.t(`type.${type}`)}
+          </Text>
+          <Text style={textStyles.meta(theme)}>{strings.t(`sub.${type}`)}</Text>
         </View>
       </View>
 
@@ -171,7 +167,7 @@ export function ComposeScreen({
           multiline
           autoFocus
           editable={!submitting}
-          placeholder={PROMPT[type]}
+          placeholder={strings.t(`prompt.${type}`)}
           placeholderTextColor={theme.colors.textTertiary}
           style={{
             minHeight: 140,
@@ -204,7 +200,7 @@ export function ComposeScreen({
             </Text>
           ) : tooShort ? (
             <Text style={textStyles.meta(theme)}>
-              At least {USER_MESSAGE_MIN} characters
+              {strings.t('compose.minChars', { count: USER_MESSAGE_MIN })}
             </Text>
           ) : null}
           <Text
@@ -220,7 +216,7 @@ export function ComposeScreen({
 
         <View style={{ paddingTop: 12 }}>
           <PrimaryButton
-            label={submitting ? 'Sending…' : 'Send'}
+            label={strings.t(submitting ? 'compose.sending' : 'compose.send')}
             onPress={handleSubmit}
             disabled={!valid || submitting}
             theme={theme}

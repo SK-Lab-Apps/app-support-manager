@@ -112,6 +112,20 @@ export function registerPush(
   });
 }
 
+/** Records the language the user reads and writes support messages in. */
+export function setLanguage(
+  config: ApiConfig,
+  input: { revenuecatId: string; language: string },
+): Promise<{ language: string }> {
+  return request(config, 'set-language', {
+    method: 'POST',
+    body: JSON.stringify({
+      revenuecat_id: input.revenuecatId,
+      language: input.language,
+    }),
+  });
+}
+
 export function submitQuery(
   config: ApiConfig,
   input: {
@@ -121,6 +135,7 @@ export function submitQuery(
     isPaid: boolean;
     revenuecatId: string;
     appVersion: string;
+    language: string;
   },
 ): Promise<{ query_id: string }> {
   return request(config, 'submit-query', {
@@ -133,13 +148,20 @@ export function submitQuery(
       is_paid: input.isPaid,
       revenuecat_id: input.revenuecatId,
       app_version: input.appVersion,
+      // Sent on every write so a lost set-language call self-heals.
+      language: input.language,
     }),
   });
 }
 
 export function postMessage(
   config: ApiConfig,
-  input: { queryId: string; revenuecatId: string; message: string },
+  input: {
+    queryId: string;
+    revenuecatId: string;
+    message: string;
+    language: string;
+  },
 ): Promise<{ message_id: string }> {
   return request(config, 'post-message', {
     method: 'POST',
@@ -147,6 +169,7 @@ export function postMessage(
       query_id: input.queryId,
       revenuecat_id: input.revenuecatId,
       message: input.message,
+      language: input.language,
     }),
   });
 }

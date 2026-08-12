@@ -145,6 +145,42 @@ export function CheckIcon({ color, size = 16 }: { color: string; size?: number }
   );
 }
 
+/** Globe: circle, equator, and a pill standing in for the meridian curve. */
+export function GlobeIcon({ color, size = 16 }: { color: string; size?: number }) {
+  const inner = size - STROKE * 2;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderWidth: STROKE,
+        borderColor: color,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          width: inner,
+          height: STROKE,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.52,
+          height: inner,
+          borderWidth: STROKE,
+          borderColor: color,
+          borderRadius: size * 0.26,
+        }}
+      />
+    </View>
+  );
+}
+
 /** Send arrow: a stem plus a chevron head, both centered on the same axis. */
 export function ArrowUpIcon({ color, size = 16 }: { color: string; size?: number }) {
   const stroke = STROKE + 0.4;

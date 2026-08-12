@@ -1,0 +1,78 @@
+import type { StringTable } from './en';
+
+export const fr: StringTable = {
+  'home.title': 'Assistance',
+  'home.subtitle': 'Démarrez une conversation — nous répondons ici même.',
+  'home.close': "Fermer l'assistance",
+  'home.open': 'En cours',
+  'home.resolved': 'Résolues',
+  'home.empty': 'Aucune conversation pour le moment',
+  'home.emptyHint':
+    "Tout ce que vous envoyez arrive chez l'équipe, et ses réponses reviennent dans cette fenêtre.",
+  'home.noMessages': 'Aucun message pour le moment',
+  'home.you': 'Vous',
+  'home.threadA11y': 'Conversation : {type}',
+  'home.threadUnreadA11y': 'Conversation : {type}, {count} non lus',
+  'home.newA11y': 'Nouveau : {type}',
+  'home.language': 'Langue',
+
+  'type.feedback': 'Avis',
+  'type.feature_request': 'Suggestion',
+  'type.bug_report': 'Signalement de bug',
+  'hint.feedback': 'Dites-nous ce que vous en pensez',
+  'hint.feature_request': 'Proposez une amélioration',
+  'hint.bug_report': 'Quelque chose ne fonctionne pas',
+  'prompt.feedback': 'Que devrions-nous savoir ?',
+  'prompt.feature_request': 'Que souhaiteriez-vous voir ?',
+  'prompt.bug_report': "Que s'est-il passé, et à quoi vous attendiez-vous ?",
+  'sub.feedback': "Bon ou mauvais — cela va directement à l'équipe.",
+  'sub.feature_request': 'Dites-nous ce que vous essayez de faire.',
+  'sub.bug_report':
+    'Les étapes, l’écran concerné et ce que vous attendiez nous aident.',
+
+  'compose.back': 'Retour aux conversations',
+  'compose.sent': 'Envoyé',
+  'compose.sentHint':
+    'Nous répondrons ici même. Vous retrouverez la conversation dans En cours, et le bouton affiche une pastille dès que nous répondons.',
+  'compose.done': 'Terminé',
+  'compose.send': 'Envoyer',
+  'compose.sending': 'Envoi…',
+  'compose.minChars': 'Au moins {count} caractères',
+
+  'thread.support': 'Assistance',
+  'thread.new': 'Nouveau',
+  'thread.resolvedAt': 'Résolue · {date}',
+  'thread.readOnly': 'Cette conversation est résolue et en lecture seule',
+  'thread.placeholder': 'Écrivez une réponse…',
+  'thread.sendA11y': 'Envoyer la réponse',
+  'thread.sendingA11y': 'Envoi en cours',
+  'thread.translating': 'Traduction…',
+
+  'status.open': 'En cours',
+  'status.resolved': 'Résolue',
+
+  'error.tryAgain': 'Réessayer',
+  'error.rateLimited': 'Trop de demandes — réessayez plus tard',
+  'error.offline': 'Vous êtes hors ligne — vérifiez votre connexion',
+  'error.sendFailed': "Envoi impossible — réessayez",
+  'error.loadFailed': 'Impossible de charger vos conversations',
+  'error.unavailable': "L'assistance est indisponible pour le moment",
+  'error.loadRateLimited': 'Trop de demandes — réessayez dans un instant',
+
+  'lang.title': 'Choisissez votre langue',
+  'lang.subtitle':
+    "Écrivez dans la langue de votre choix — nous traduisons entre vous et l'équipe d'assistance.",
+  'lang.continue': 'Continuer',
+  'lang.change': 'Changer de langue',
+  'lang.saveFailed': 'Enregistrement impossible — réessayez',
+
+  'time.justNow': "à l'instant",
+  'time.minutes': 'il y a {count} min',
+  'time.hours': 'il y a {count} h',
+  'time.days': 'il y a {count} j',
+  'time.weeks': 'il y a {count} sem.',
+  'time.months': 'il y a {count} mois',
+  'time.years': 'il y a {count} ans',
+  'time.today': "Aujourd'hui",
+  'time.yesterday': 'Hier',
+};

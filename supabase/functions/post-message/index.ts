@@ -8,12 +8,18 @@ import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { authenticateApp, serviceClient } from '../_shared/app-auth.ts';
 import { enforceRateLimit, LIMITS } from '../_shared/rate-limit.ts';
+import { ADMIN_LANGUAGE, isSupportedLanguage } from '../_shared/languages.ts';
+import { resolveUserLanguage } from '../_shared/user-language.ts';
+import { translateInBackground } from '../_shared/translate.ts';
 
 const BodySchema = z.object({
   query_id: z.string().uuid(),
   revenuecat_id: z.string().trim().min(1).max(200),
   // Char limits enforced server-side here AND by the messages table CHECK.
   message: z.string().trim().min(10).max(300),
+  // The language this message is written in. Sent by the SDK on every write
+  // so the stored preference stays fresh even if set-language never landed.
+  language: z.string().trim().refine(isSupportedLanguage).optional(),
 });
 
 Deno.serve(async (req) => {
@@ -73,9 +79,23 @@ Deno.serve(async (req) => {
     return errorResponse('Thread is resolved and read-only', 409);
   }
 
+  const language = await resolveUserLanguage(
+    supabase,
+    app.id,
+    body.revenuecat_id,
+    body.language,
+  );
+  const needsTranslation = language !== ADMIN_LANGUAGE;
+
   const { data: message, error: insertError } = await supabase
     .from('messages')
-    .insert({ query_id: query.id, sender: 'user', body: body.message })
+    .insert({
+      query_id: query.id,
+      sender: 'user',
+      body: body.message,
+      body_language: language,
+      translation_status: needsTranslation ? 'pending' : 'skipped',
+    })
     .select('id, created_at')
     .single();
 
@@ -83,6 +103,10 @@ Deno.serve(async (req) => {
     console.error('post-message: insert failed', insertError);
     return errorResponse("Couldn't send message", 500);
   }
+
+  // After the row exists, never before it: the reply is delivered whether or
+  // not the translation ever arrives.
+  if (needsTranslation) translateInBackground(supabase, message.id);
 
   return json({ message_id: message.id, created_at: message.created_at }, 201);
 });

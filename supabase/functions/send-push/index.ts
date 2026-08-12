@@ -14,18 +14,14 @@ import { z } from 'npm:zod@3.23.8';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/app-auth.ts';
+import { ADMIN_LANGUAGE, baseLanguage } from '../_shared/languages.ts';
+import { replyNotification } from '../_shared/push-copy.ts';
 
 const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 
 const BodySchema = z.object({
   query_id: z.string().uuid(),
 });
-
-const TYPE_LABEL: Record<string, string> = {
-  feedback: 'your feedback',
-  feature_request: 'your feature request',
-  bug_report: 'your bug report',
-};
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -46,9 +42,11 @@ Deno.serve(async (req) => {
   } = await callerClient.auth.getUser();
   if (!user) return errorResponse('Unauthorized', 401);
 
+  // Membership is all we need: the notification names the team, not the
+  // person who replied.
   const { data: admin } = await callerClient
     .from('admins')
-    .select('id, display_name')
+    .select('id')
     .eq('id', user.id)
     .maybeSingle();
   if (!admin) return errorResponse('Forbidden', 403);
@@ -91,9 +89,21 @@ Deno.serve(async (req) => {
     });
   }
 
+  // A reply translated into the user's language shouldn't arrive under an
+  // English notification. This copy is a static table, not a model call.
+  const { data: locale } = await supabase
+    .from('user_locales')
+    .select('language')
+    .eq('app_id', query.app_id)
+    .eq('revenuecat_id', query.revenuecat_id)
+    .maybeSingle();
+
   const appName =
     (query.apps as unknown as { name: string } | null)?.name ?? 'Support';
-  const subject = TYPE_LABEL[query.type as string] ?? 'your message';
+  const notificationBody = replyNotification(
+    baseLanguage(locale?.language ?? ADMIN_LANGUAGE),
+    query.type as string,
+  );
 
   try {
     const response = await fetch(EXPO_PUSH_ENDPOINT, {
@@ -105,7 +115,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         to: subscription.expo_push_token,
         title: appName,
-        body: `${admin.display_name} replied to ${subject}`,
+        body: notificationBody,
         sound: 'default',
         // Lets the host app deep-link straight into the thread.
         data: { query_id: query.id, type: 'support_reply' },

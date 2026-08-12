@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const ja: StringTable = {
+  'home.title': 'サポート',
+  'home.subtitle': 'お問い合わせを始めてください。ここで直接お返事します。',
+  'home.close': 'サポートを閉じる',
+  'home.open': '対応中',
+  'home.resolved': '解決済み',
+  'home.empty': 'まだ会話はありません',
+  'home.emptyHint':
+    '送信した内容はチームに届き、返信はこの画面に戻ってきます。',
+  'home.noMessages': 'まだメッセージはありません',
+  'home.you': 'あなた',
+  'home.threadA11y': '会話：{type}',
+  'home.threadUnreadA11y': '会話：{type}、未読 {count} 件',
+  'home.newA11y': '新規：{type}',
+  'home.language': '言語',
+
+  'type.feedback': 'フィードバック',
+  'type.feature_request': '機能リクエスト',
+  'type.bug_report': 'バグ報告',
+  'hint.feedback': 'ご意見をお聞かせください',
+  'hint.feature_request': '改善のご提案をどうぞ',
+  'hint.bug_report': 'うまく動かないとき',
+  'prompt.feedback': 'どんなことをお知らせいただけますか？',
+  'prompt.feature_request': 'どんな機能があるとよいですか？',
+  'prompt.bug_report': '何が起こり、どうなるはずでしたか？',
+  'sub.feedback': '良い点も悪い点も、そのままチームに届きます。',
+  'sub.feature_request': '何をしようとしているか教えてください。',
+  'sub.bug_report': '手順・画面・期待した動作があると助かります。',
+
+  'compose.back': '会話一覧に戻る',
+  'compose.sent': '送信しました',
+  'compose.sentHint':
+    'ここで直接お返事します。会話は「対応中」にあり、返信するとボタンにバッジが表示されます。',
+  'compose.done': '完了',
+  'compose.send': '送信',
+  'compose.sending': '送信中…',
+  'compose.minChars': '{count} 文字以上入力してください',
+
+  'thread.support': 'サポート',
+  'thread.new': '新着',
+  'thread.resolvedAt': '解決済み · {date}',
+  'thread.readOnly': 'この会話は解決済みで、読み取り専用です',
+  'thread.placeholder': '返信を入力…',
+  'thread.sendA11y': '返信を送信',
+  'thread.sendingA11y': '送信中',
+  'thread.translating': '翻訳中…',
+
+  'status.open': '対応中',
+  'status.resolved': '解決済み',
+
+  'error.tryAgain': '再試行',
+  'error.rateLimited': 'リクエストが多すぎます。時間をおいてお試しください',
+  'error.offline': 'オフラインです。接続を確認してください',
+  'error.sendFailed': '送信できませんでした。もう一度お試しください',
+  'error.loadFailed': '会話を読み込めませんでした',
+  'error.unavailable': '現在サポートをご利用いただけません',
+  'error.loadRateLimited': 'リクエストが多すぎます。少し経ってからお試しください',
+
+  'lang.title': '言語を選択',
+  'lang.subtitle':
+    'お好きな言語でどうぞ。あなたとサポートチームの間で翻訳します。',
+  'lang.continue': '続ける',
+  'lang.change': '言語を変更',
+  'lang.saveFailed': '保存できませんでした。もう一度お試しください',
+
+  'time.justNow': 'たった今',
+  'time.minutes': '{count} 分前',
+  'time.hours': '{count} 時間前',
+  'time.days': '{count} 日前',
+  'time.weeks': '{count} 週間前',
+  'time.months': '{count} か月前',
+  'time.years': '{count} 年前',
+  'time.today': '今日',
+  'time.yesterday': '昨日',
+};

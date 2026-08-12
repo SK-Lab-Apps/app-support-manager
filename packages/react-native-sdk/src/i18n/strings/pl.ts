@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const pl: StringTable = {
+  'home.title': 'Pomoc',
+  'home.subtitle': 'Rozpocznij rozmowę — odpowiadamy tutaj.',
+  'home.close': 'Zamknij pomoc',
+  'home.open': 'Otwarte',
+  'home.resolved': 'Rozwiązane',
+  'home.empty': 'Nie ma jeszcze rozmów',
+  'home.emptyHint':
+    'Wszystko, co wyślesz, trafia do zespołu, a odpowiedzi wracają do tego okna.',
+  'home.noMessages': 'Nie ma jeszcze wiadomości',
+  'home.you': 'Ty',
+  'home.threadA11y': 'Rozmowa: {type}',
+  'home.threadUnreadA11y': 'Rozmowa: {type}, nieprzeczytane: {count}',
+  'home.newA11y': 'Nowe: {type}',
+  'home.language': 'Język',
+
+  'type.feedback': 'Opinia',
+  'type.feature_request': 'Prośba o funkcję',
+  'type.bug_report': 'Zgłoszenie błędu',
+  'hint.feedback': 'Powiedz nam, co myślisz',
+  'hint.feature_request': 'Zaproponuj ulepszenie',
+  'hint.bug_report': 'Coś nie działa',
+  'prompt.feedback': 'Co powinniśmy wiedzieć?',
+  'prompt.feature_request': 'Co chciałbyś zobaczyć?',
+  'prompt.bug_report': 'Co się stało i czego się spodziewałeś?',
+  'sub.feedback': 'Dobra czy zła — trafia prosto do zespołu.',
+  'sub.feature_request': 'Napisz, co próbujesz osiągnąć.',
+  'sub.bug_report': 'Kroki, ekran i to, czego oczekiwałeś — wszystko pomaga.',
+
+  'compose.back': 'Wróć do rozmów',
+  'compose.sent': 'Wysłano',
+  'compose.sentHint':
+    'Odpowiemy tutaj. Rozmowę znajdziesz w sekcji Otwarte, a przycisk pokaże znacznik, gdy odpiszemy.',
+  'compose.done': 'Gotowe',
+  'compose.send': 'Wyślij',
+  'compose.sending': 'Wysyłanie…',
+  'compose.minChars': 'Co najmniej {count} znaków',
+
+  'thread.support': 'Pomoc',
+  'thread.new': 'Nowe',
+  'thread.resolvedAt': 'Rozwiązane · {date}',
+  'thread.readOnly': 'Ta rozmowa jest rozwiązana i tylko do odczytu',
+  'thread.placeholder': 'Napisz odpowiedź…',
+  'thread.sendA11y': 'Wyślij odpowiedź',
+  'thread.sendingA11y': 'Wysyłanie',
+  'thread.translating': 'Tłumaczenie…',
+
+  'status.open': 'Otwarta',
+  'status.resolved': 'Rozwiązana',
+
+  'error.tryAgain': 'Spróbuj ponownie',
+  'error.rateLimited': 'Zbyt wiele żądań — spróbuj później',
+  'error.offline': 'Jesteś offline — sprawdź połączenie',
+  'error.sendFailed': 'Nie udało się wysłać — spróbuj ponownie',
+  'error.loadFailed': 'Nie udało się wczytać rozmów',
+  'error.unavailable': 'Pomoc jest teraz niedostępna',
+  'error.loadRateLimited': 'Zbyt wiele żądań — spróbuj za chwilę',
+
+  'lang.title': 'Wybierz swój język',
+  'lang.subtitle':
+    'Pisz w dowolnym języku — tłumaczymy między Tobą a zespołem pomocy.',
+  'lang.continue': 'Dalej',
+  'lang.change': 'Zmień język',
+  'lang.saveFailed': 'Nie udało się zapisać — spróbuj ponownie',
+
+  'time.justNow': 'przed chwilą',
+  'time.minutes': '{count} min temu',
+  'time.hours': '{count} godz. temu',
+  'time.days': '{count} dni temu',
+  'time.weeks': '{count} tyg. temu',
+  'time.months': '{count} mies. temu',
+  'time.years': '{count} lat temu',
+  'time.today': 'Dzisiaj',
+  'time.yesterday': 'Wczoraj',
+};

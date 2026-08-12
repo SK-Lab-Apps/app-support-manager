@@ -21,6 +21,7 @@ import {
   SupportApiError,
   type ApiConfig,
 } from './api';
+import type { StringKey } from './i18n';
 import type { Thread } from './types';
 import {
   latestAdminMessageAt,
@@ -50,10 +51,14 @@ const MARK_READ_BACKOFF_MS = 1_500;
  * an integration mistake — the end user retrying forever won't fix a key
  * that doesn't match the app — so the real cause is logged for whoever is
  * running the build instead of hidden behind "couldn't load".
+ *
+ * Returns a key rather than a message: the hook has no business knowing what
+ * language the sheet is in, and resolving it here would make every callback
+ * depend on the translator.
  */
-function loadErrorMessage(e: unknown): string {
+function loadErrorKey(e: unknown): StringKey {
   if (e instanceof SupportApiError) {
-    if (e.offline) return "You're offline — check your connection";
+    if (e.offline) return 'error.offline';
     if (e.status === 401 || e.status === 403) {
       if (__DEV__) {
         console.error(
@@ -62,11 +67,11 @@ function loadErrorMessage(e: unknown): string {
             '`appName` matches that app exactly.',
         );
       }
-      return 'Support is unavailable right now';
+      return 'error.unavailable';
     }
-    if (e.status === 429) return 'Too many requests — try again in a bit';
+    if (e.status === 429) return 'error.loadRateLimited';
   }
-  return "Couldn't load your conversations";
+  return 'error.loadFailed';
 }
 
 interface ReadAttempt {
@@ -87,7 +92,16 @@ export interface SupportThreadsState {
   /** User-pulled refresh with content already on screen. */
   refreshing: boolean;
   /** Set only when there is nothing cached; background failures stay quiet. */
-  error: string | null;
+  errorKey: StringKey | null;
+  /** The language this user picked, or null if they never have. */
+  serverLanguage: string | null;
+  /**
+   * False until the first successful load. `serverLanguage === null` only
+   * means "never picked" once this is true — before that it means "don't
+   * know yet", and showing the picker on a guess would nag a user who
+   * answered on another device.
+   */
+  languageLoaded: boolean;
   /** User-initiated refresh (pull-to-refresh, retry button). */
   refresh: () => void;
   /** Awaited by send/submit handlers so the list reflects the write. */
@@ -114,7 +128,9 @@ export function useSupportThreads({
   const [totalUnread, setTotalUnread] = useState(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<StringKey | null>(null);
+  const [serverLanguage, setServerLanguage] = useState<string | null>(null);
+  const [languageLoaded, setLanguageLoaded] = useState(false);
 
   const mounted = useRef(true);
   /** Last server payload, before local read reconciliation. */
@@ -256,7 +272,9 @@ export function useSupportThreads({
 
         rawThreads.current = data.threads;
         watermarks.current = pruneWatermarks(watermarks.current, data.threads);
-        setError(null);
+        setErrorKey(null);
+        setServerLanguage(data.language);
+        setLanguageLoaded(true);
         publish();
 
         // Replies that arrived while the user is sitting in the thread are
@@ -267,7 +285,7 @@ export function useSupportThreads({
       } catch (e) {
         if (!mounted.current) return;
         // A failed background poll must not blow away cached threads.
-        if (rawThreads.current === null) setError(loadErrorMessage(e));
+        if (rawThreads.current === null) setErrorKey(loadErrorKey(e));
       } finally {
         if (mounted.current) {
           if (spinner) setRefreshing(false);
@@ -365,7 +383,9 @@ export function useSupportThreads({
     totalUnread,
     loading,
     refreshing,
-    error,
+    errorKey,
+    serverLanguage,
+    languageLoaded,
     refresh,
     reload,
   };

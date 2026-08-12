@@ -1,0 +1,77 @@
+import type { StringTable } from './en';
+
+export const nl: StringTable = {
+  'home.title': 'Support',
+  'home.subtitle': 'Begin een gesprek — we antwoorden hier.',
+  'home.close': 'Support sluiten',
+  'home.open': 'Open',
+  'home.resolved': 'Afgehandeld',
+  'home.empty': 'Nog geen gesprekken',
+  'home.emptyHint':
+    'Alles wat je stuurt komt bij het team terecht, en hun antwoorden verschijnen in dit venster.',
+  'home.noMessages': 'Nog geen berichten',
+  'home.you': 'Jij',
+  'home.threadA11y': 'Gesprek: {type}',
+  'home.threadUnreadA11y': 'Gesprek: {type}, {count} ongelezen',
+  'home.newA11y': 'Nieuw: {type}',
+  'home.language': 'Taal',
+
+  'type.feedback': 'Feedback',
+  'type.feature_request': 'Functieverzoek',
+  'type.bug_report': 'Bugmelding',
+  'hint.feedback': 'Vertel ons wat je ervan vindt',
+  'hint.feature_request': 'Stel een verbetering voor',
+  'hint.bug_report': 'Er werkt iets niet',
+  'prompt.feedback': 'Wat moeten we weten?',
+  'prompt.feature_request': 'Wat zou je graag willen zien?',
+  'prompt.bug_report': 'Wat gebeurde er, en wat had je verwacht?',
+  'sub.feedback': 'Goed of slecht — het gaat rechtstreeks naar het team.',
+  'sub.feature_request': 'Vertel ons wat je probeert te doen.',
+  'sub.bug_report': 'Stappen, scherm en wat je verwachtte helpen allemaal.',
+
+  'compose.back': 'Terug naar gesprekken',
+  'compose.sent': 'Verzonden',
+  'compose.sentHint':
+    'We antwoorden hier. Je vindt het gesprek onder Open, en de knop toont een badge zodra we reageren.',
+  'compose.done': 'Klaar',
+  'compose.send': 'Verzenden',
+  'compose.sending': 'Verzenden…',
+  'compose.minChars': 'Minstens {count} tekens',
+
+  'thread.support': 'Support',
+  'thread.new': 'Nieuw',
+  'thread.resolvedAt': 'Afgehandeld · {date}',
+  'thread.readOnly': 'Dit gesprek is afgehandeld en alleen-lezen',
+  'thread.placeholder': 'Schrijf een antwoord…',
+  'thread.sendA11y': 'Antwoord verzenden',
+  'thread.sendingA11y': 'Bezig met verzenden',
+  'thread.translating': 'Vertalen…',
+
+  'status.open': 'Open',
+  'status.resolved': 'Afgehandeld',
+
+  'error.tryAgain': 'Opnieuw proberen',
+  'error.rateLimited': 'Te veel verzoeken — probeer het later opnieuw',
+  'error.offline': 'Je bent offline — controleer je verbinding',
+  'error.sendFailed': 'Verzenden mislukt — probeer het opnieuw',
+  'error.loadFailed': 'Je gesprekken konden niet worden geladen',
+  'error.unavailable': 'Support is momenteel niet beschikbaar',
+  'error.loadRateLimited': 'Te veel verzoeken — probeer het zo opnieuw',
+
+  'lang.title': 'Kies je taal',
+  'lang.subtitle':
+    'Schrijf in de taal die jij wilt — wij vertalen tussen jou en het supportteam.',
+  'lang.continue': 'Doorgaan',
+  'lang.change': 'Taal wijzigen',
+  'lang.saveFailed': 'Opslaan mislukt — probeer het opnieuw',
+
+  'time.justNow': 'zojuist',
+  'time.minutes': '{count} min geleden',
+  'time.hours': '{count} u geleden',
+  'time.days': '{count} d geleden',
+  'time.weeks': '{count} w geleden',
+  'time.months': '{count} mnd geleden',
+  'time.years': '{count} j geleden',
+  'time.today': 'Vandaag',
+  'time.yesterday': 'Gisteren',
+};

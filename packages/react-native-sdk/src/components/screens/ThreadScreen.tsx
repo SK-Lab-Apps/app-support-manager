@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { Translator } from '../../i18n';
 import type { SupportTheme } from '../../theme';
 import type { Thread, ThreadMessage } from '../../types';
 import { USER_MESSAGE_MAX, USER_MESSAGE_MIN } from '../../types';
@@ -34,7 +35,11 @@ interface Row {
   startsUnread: boolean;
 }
 
-function buildRows(messages: ThreadMessage[], unreadCount: number): Row[] {
+function buildRows(
+  messages: ThreadMessage[],
+  unreadCount: number,
+  strings: Translator,
+): Row[] {
   // Unread messages are always the newest admin ones, so the divider goes
   // above the Nth-from-last admin message.
   let remaining = unreadCount;
@@ -49,16 +54,18 @@ function buildRows(messages: ThreadMessage[], unreadCount: number): Row[] {
   return messages.map((message, i) => {
     const previous = i > 0 ? (messages[i - 1] ?? null) : null;
     const next = i < messages.length - 1 ? (messages[i + 1] ?? null) : null;
+    // Grouped by sender alone. Two replies from two different admins are two
+    // messages from "Support" as far as this side is concerned, so breaking
+    // the group between them would be a visible seam with no visible cause.
     const withinGroup = (a: ThreadMessage | null, b: ThreadMessage) =>
       a !== null &&
       a.sender === b.sender &&
-      a.admin_name === b.admin_name &&
       Math.abs(Date.parse(b.created_at) - Date.parse(a.created_at)) <
         GROUP_WINDOW_MS;
 
     const day =
       previous === null || !isSameDay(previous.created_at, message.created_at)
-        ? dayLabel(message.created_at)
+        ? dayLabel(message.created_at, strings)
         : null;
     const startsUnread = message.id === firstUnreadId;
 
@@ -127,7 +134,15 @@ function Separator({
   );
 }
 
-function MessageBubble({ row, theme }: { row: Row; theme: SupportTheme }) {
+function MessageBubble({
+  row,
+  theme,
+  strings,
+}: {
+  row: Row;
+  theme: SupportTheme;
+  strings: Translator;
+}) {
   const { message, firstInGroup, lastInGroup } = row;
   const own = message.sender === 'user';
   const round = theme.radii.bubble;
@@ -145,7 +160,7 @@ function MessageBubble({ row, theme }: { row: Row; theme: SupportTheme }) {
     >
       {!own && firstInGroup && (
         <Text style={[textStyles.meta(theme), { paddingHorizontal: 4 }]}>
-          {message.admin_name ?? 'Support'}
+          {strings.t('thread.support')}
         </Text>
       )}
       <View
@@ -172,7 +187,11 @@ function MessageBubble({ row, theme }: { row: Row; theme: SupportTheme }) {
       </View>
       {lastInGroup && (
         <Text style={[textStyles.meta(theme), { paddingHorizontal: 4 }]}>
-          {formatTime(message.created_at)}
+          {/* A reply whose translation is still in flight says so, rather
+              than showing English that changes under the reader. */}
+          {message.translation_pending
+            ? strings.t('thread.translating')
+            : formatTime(message.created_at, strings)}
         </Text>
       )}
     </View>
@@ -181,11 +200,13 @@ function MessageBubble({ row, theme }: { row: Row; theme: SupportTheme }) {
 
 export function ThreadScreen({
   theme,
+  strings,
   thread,
   onBack,
   onSend,
 }: {
   theme: SupportTheme;
+  strings: Translator;
   thread: Thread;
   onBack: () => void;
   /** Resolves null on success, or a user-facing error message. */
@@ -206,8 +227,8 @@ export function ThreadScreen({
   const tooShort = trimmed.length > 0 && trimmed.length < USER_MESSAGE_MIN;
 
   const rows = useMemo(
-    () => buildRows(thread.messages, unreadOnOpen),
-    [thread.messages, unreadOnOpen],
+    () => buildRows(thread.messages, unreadOnOpen, strings),
+    [thread.messages, unreadOnOpen, strings],
   );
 
   useEffect(() => {
@@ -244,15 +265,15 @@ export function ThreadScreen({
         <IconButton
           onPress={onBack}
           theme={theme}
-          accessibilityLabel="Back to conversations"
+          accessibilityLabel={strings.t('compose.back')}
           size={32}
         >
           <Chevron color={theme.colors.textSecondary} direction="left" size={12} />
         </IconButton>
-        <TypeChipView type={thread.type} theme={theme} />
-        <StatusIndicator status={thread.status} theme={theme} />
+        <TypeChipView type={thread.type} theme={theme} strings={strings} />
+        <StatusIndicator status={thread.status} theme={theme} strings={strings} />
         <Text style={[textStyles.meta(theme), { marginLeft: 'auto' }]}>
-          {relativeTime(thread.created_at)}
+          {relativeTime(thread.created_at, strings)}
         </Text>
       </View>
 
@@ -270,18 +291,22 @@ export function ThreadScreen({
           <View key={row.message.id}>
             {row.day !== null && <Separator label={row.day} theme={theme} />}
             {row.startsUnread && (
-              <Separator label="New" theme={theme} tone="accent" />
+              <Separator
+                label={strings.t('thread.new')}
+                theme={theme}
+                tone="accent"
+              />
             )}
-            <MessageBubble row={row} theme={theme} />
+            <MessageBubble row={row} theme={theme} strings={strings} />
           </View>
         ))}
 
         {resolved && thread.resolved_at !== null && (
           <View style={{ marginTop: 16 }}>
             <Separator
-              label={`Resolved by ${thread.resolved_by_name ?? 'support'} · ${formatDate(
-                thread.resolved_at,
-              )}`}
+              label={strings.t('thread.resolvedAt', {
+                date: formatDate(thread.resolved_at, strings),
+              })}
               theme={theme}
             />
           </View>
@@ -308,7 +333,7 @@ export function ThreadScreen({
             }}
           >
             <Text style={textStyles.secondary(theme)}>
-              This conversation is resolved and read-only
+              {strings.t('thread.readOnly')}
             </Text>
           </View>
         ) : (
@@ -322,7 +347,7 @@ export function ThreadScreen({
                 }}
                 multiline
                 editable={!sending}
-                placeholder="Write a reply…"
+                placeholder={strings.t('thread.placeholder')}
                 placeholderTextColor={theme.colors.textTertiary}
                 style={{
                   flex: 1,
@@ -347,7 +372,9 @@ export function ThreadScreen({
                 tone="accent"
                 size={44}
                 disabled={!valid || sending}
-                accessibilityLabel={sending ? 'Sending' : 'Send reply'}
+                accessibilityLabel={strings.t(
+                  sending ? 'thread.sendingA11y' : 'thread.sendA11y',
+                )}
               >
                 <ArrowUpIcon color={theme.colors.accentForeground} size={19} />
               </IconButton>
@@ -371,7 +398,7 @@ export function ThreadScreen({
                   </Text>
                 ) : tooShort ? (
                   <Text style={textStyles.meta(theme)}>
-                    At least {USER_MESSAGE_MIN} characters
+                    {strings.t('compose.minChars', { count: USER_MESSAGE_MIN })}
                   </Text>
                 ) : null}
                 {draft.length >= COUNTER_VISIBLE_FROM && (
