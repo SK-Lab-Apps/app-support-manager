@@ -1,6 +1,8 @@
 node_modules/
 dist/
-lib/
+# builder-bob output for the SDK. Scoped: a bare `lib/` also swallowed
+# apps/web/lib/, which is source.
+packages/react-native-sdk/lib/
 .next/
 out/
 *.tsbuildinfo
