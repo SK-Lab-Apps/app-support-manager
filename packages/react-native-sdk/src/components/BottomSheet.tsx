@@ -155,7 +155,7 @@ export function BottomSheet({
           <Animated.View
             style={{
               height: sheetHeight,
-              backgroundColor: theme.colors.bg,
+              backgroundColor: theme.colors.sheet,
               borderTopLeftRadius: theme.radii.sheet,
               borderTopRightRadius: theme.radii.sheet,
               borderWidth: 1,

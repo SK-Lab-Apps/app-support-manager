@@ -169,6 +169,10 @@ export function ComposeScreen({
           editable={!submitting}
           placeholder={strings.t(`prompt.${type}`)}
           placeholderTextColor={theme.colors.textTertiary}
+          // Matches the sheet even when the theme is pinned against the
+          // device's own setting.
+          keyboardAppearance={theme.name}
+          selectionColor={theme.colors.accent}
           style={{
             minHeight: 140,
             maxHeight: 240,

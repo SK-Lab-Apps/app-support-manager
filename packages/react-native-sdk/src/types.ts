@@ -5,6 +5,14 @@ export type QueryType = 'feedback' | 'feature_request' | 'bug_report';
 export type QueryStatus = 'open' | 'resolved';
 export type MessageSender = 'user' | 'admin';
 export type ThemeName = 'dark' | 'light';
+/** What the host app asks for. "system" follows the app's light/dark appearance. */
+export type ThemePreference = ThemeName | 'system';
+/**
+ * A brand color: one hex for both modes, or a pair. A single color is
+ * lightened in dark mode (darkened in light) only as far as it takes to
+ * stay visible; a pair is used exactly as given.
+ */
+export type AccentColor = string | { light: string; dark: string };
 export type PushPermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 /**
@@ -39,14 +47,19 @@ export interface SupportButtonProps {
    * Edge Functions.
    */
   supabaseUrl: string;
-  /** Visual theme. Matches the admin dashboard tokens. Default "dark". */
-  theme?: ThemeName;
   /**
-   * Brand color (hex, e.g. "#FF5A1F") replacing the default accent across
-   * the launcher, buttons, and the user's own message bubbles. The pressed
-   * shade, the 12% wash, and a legible foreground are derived from it.
+   * Visual theme. Default "system": follows the host app's light/dark
+   * appearance (the device setting, unless the app pins one) and switches
+   * live when it changes. Pass "light" or "dark" to pin it.
    */
-  accentColor?: string;
+  theme?: ThemePreference;
+  /**
+   * Brand color replacing the default accent across the launcher, buttons,
+   * and the user's own message bubbles: a hex like "#FF5A1F", or
+   * `{ light, dark }` for a color per mode. The pressed shade, the 12% wash,
+   * a text-safe variant, and a legible foreground are derived from it.
+   */
+  accentColor?: AccentColor;
   /** Launcher style. Default "solid" — the floating action button. */
   variant?: LauncherVariant;
   /** Launcher diameter in px (height when `label` is set). Default 52. */

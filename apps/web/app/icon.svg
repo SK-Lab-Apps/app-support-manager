@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- The product mark on its accent tile. Geometry shared with
+       components/logo.tsx and the SDK's ConversationMark. -->
+  <rect width="24" height="24" rx="6.72" fill="#2E6FE0"/>
+  <g transform="translate(4.25 4.25) scale(0.6458)" fill="#FFFFFF">
+    <rect x="1" y="2.5" width="14.5" height="11" rx="4.5"/>
+    <polygon points="3.5,12.25 7.75,12.25 3.5,16.5"/>
+    <rect x="6.5" y="6.75" width="18.5" height="14.5" rx="6.5" fill="#2E6FE0"/>
+    <rect x="8.5" y="8.75" width="14.5" height="10.5" rx="4.5"/>
+    <polygon points="16.5,18.25 20.75,18.25 20.75,22.5"/>
+  </g>
+</svg>

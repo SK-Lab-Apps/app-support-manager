@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { LogoTile } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -49,9 +50,7 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-4 py-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
       <div className="w-full max-w-[320px]">
         <div className="mb-6">
-          <div className="mb-4 flex h-7 w-7 items-center justify-center rounded-control border border-border bg-surface text-xs font-semibold">
-            S
-          </div>
+          <LogoTile size={28} className="mb-4 flex" />
           <h1 className="text-lg font-semibold tracking-heading">Sign in</h1>
           <p className="mt-1 text-sm text-secondary">
             Admin access only. Accounts are provisioned manually.

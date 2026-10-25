@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, useColorScheme, View } from 'react-native';
 import {
   postMessage,
   registerPush,
@@ -20,8 +20,13 @@ import {
   isPushAvailable,
   onSupportNotificationTap,
 } from '../push';
-import { resolveTheme } from '../theme';
-import type { QueryType, SupportButtonProps, Thread } from '../types';
+import { themeFor } from '../theme';
+import type {
+  QueryType,
+  SupportButtonProps,
+  ThemeName,
+  Thread,
+} from '../types';
 import { IDLE_POLL_MS, useSupportThreads } from '../useSupportThreads';
 import { validateProps } from '../utils';
 import { BottomSheet } from './BottomSheet';
@@ -44,9 +49,26 @@ type Screen =
  */
 export function SupportButton(props: SupportButtonProps) {
   const validationError = validateProps(props);
+
+  // "system" (the default) follows the host app's appearance and re-renders
+  // when it changes.
+  const colorScheme = useColorScheme();
+  const themeName: ThemeName =
+    props.theme === 'light' || props.theme === 'dark'
+      ? props.theme
+      : colorScheme === 'dark'
+        ? 'dark'
+        : 'light';
+  // Picked down to one string first, so an inline `{ light, dark }` object
+  // doesn't rebuild the theme on every render.
+  const perModeAccent =
+    typeof props.accentColor === 'object' && props.accentColor !== null;
+  const accent = perModeAccent
+    ? (props.accentColor as { light: string; dark: string })[themeName]
+    : (props.accentColor as string | undefined);
   const theme = useMemo(
-    () => resolveTheme(props.theme, props.accentColor),
-    [props.theme, props.accentColor],
+    () => themeFor(themeName, accent, !perModeAccent),
+    [themeName, accent, perModeAccent],
   );
 
   const config: ApiConfig = useMemo(

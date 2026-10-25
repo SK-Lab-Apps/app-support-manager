@@ -3,6 +3,7 @@ export {
   supportDarkTheme,
   supportLightTheme,
   resolveTheme,
+  type SupportColors,
   type SupportTheme,
 } from './theme';
 export { SupportApiError } from './api';
@@ -16,6 +17,7 @@ export {
   type Language,
 } from './i18n/languages';
 export type {
+  AccentColor,
   LauncherVariant,
   MessageSender,
   PushPermissionStatus,
@@ -27,6 +29,7 @@ export type {
   ThreadMessage,
   ThreadsResponse,
   ThemeName,
+  ThemePreference,
 } from './types';
 export {
   QUERY_TYPE_LABEL,

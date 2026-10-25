@@ -138,7 +138,7 @@ import { SupportButton } from '@appsupportkit/support-sdk';
     revenuecatId: 'rc_anon_8f31bd2c',        // RevenueCat app user id
     appVersion: '2.4.1',
   }}
-  theme="dark"                               // or "light"; default "dark"
+  theme="system"                             // default; "light" or "dark" pins it
   defaultLanguage="fr"                       // optional; pre-selects the language prompt
 />
 ```
@@ -162,10 +162,20 @@ The launcher is the only part of the SDK that lives inside the host app's own UI
 | `variant` | `"solid"` | `solid` — accent fill, elevated: the floating action button. `soft` — surface fill + hairline border, for a header. `minimal` — bare mark, for a nav bar. |
 | `size` | `52` | Diameter in px (height when `label` is set). |
 | `label` | — | Renders a pill with this text beside the mark instead of a circle. |
-| `accentColor` | design-token indigo | Brand color (hex). The pressed shade, the 12% wash behind chips and own-message bubbles, and a legible foreground are all derived from it. |
+| `accentColor` | design-token cobalt | Brand color: a hex, or `{ light, dark }` for one per mode. The pressed shade, the 12% wash behind chips, a text-safe variant, and whichever of white or ink reads better on top are all derived from it. |
 | `style` | — | Applied to the launcher: position it, add margins. `{ position: 'absolute', right: 20, bottom: 32 }` gives the usual corner FAB. |
 
 The badge caps at `99+`, and pulses twice — not forever — when a new reply arrives.
+
+The launcher's mark is the product logo — two overlapping speech bubbles, the same mark as the dashboard's. The gap between the bubbles is cut in the color behind it, so the `minimal` variant assumes the design-token app background (`#0A0A0B` dark, `#FAFAFA` light); on a noticeably different background, prefer `soft`.
+
+### Light and dark mode
+
+`theme` defaults to `"system"`: the sheet and launcher follow the host app's appearance — the device setting, or whatever the app pins with `userInterfaceStyle` — and switch live when it changes. Pass `"light"` or `"dark"` to pin one; the keyboard follows the pinned mode too.
+
+A single `accentColor` has to work in both modes, so it is adjusted where it wouldn't: lightened in dark mode, darkened in light, only as far as it takes to read as a fill (3:1 against the sheet). A navy brand stays navy in light mode and lifts a little in dark; a yellow one turns mustard in light. To control both exactly, pass a pair — `accentColor={{ light: '#0F766E', dark: '#5EEAD4' }}` — and each is used as given.
+
+Text never takes the fill color directly. Every text color, the accent's included, is held to WCAG AA (4.5:1) on both the sheet and the cards on it, in both modes. In dark mode the sheet is an elevated gray rather than the dashboard's near-black, with cards and bubbles a step lighter again, so the layering stays visible over a dimmed app.
 
 ### Unread and read receipts
 

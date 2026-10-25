@@ -94,7 +94,7 @@ function Separator({
   tone?: 'muted' | 'accent';
 }) {
   const color =
-    tone === 'accent' ? theme.colors.accent : theme.colors.textTertiary;
+    tone === 'accent' ? theme.colors.accentText : theme.colors.textTertiary;
   return (
     <View
       style={{
@@ -349,6 +349,10 @@ export function ThreadScreen({
                 editable={!sending}
                 placeholder={strings.t('thread.placeholder')}
                 placeholderTextColor={theme.colors.textTertiary}
+                // Matches the sheet even when the theme is pinned against the
+                // device's own setting.
+                keyboardAppearance={theme.name}
+                selectionColor={theme.colors.accent}
                 style={{
                   flex: 1,
                   minHeight: 44,

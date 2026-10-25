@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type { AdminProfile, AppRow } from '@/lib/types';
+import { LogoTile } from '@/components/logo';
 import { NewAppDialog } from '@/components/new-app-dialog';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { IconButton } from '@/components/ui/icon-button';
@@ -51,9 +52,7 @@ function SidebarNav({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 shrink-0 items-center gap-2 px-3 coarse:h-14">
-        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border border-border bg-surface text-[10px] font-semibold">
-          S
-        </div>
+        <LogoTile size={20} />
         <span className="truncate text-sm font-semibold tracking-heading">
           Support
         </span>

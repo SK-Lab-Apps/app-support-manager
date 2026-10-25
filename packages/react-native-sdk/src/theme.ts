@@ -1,7 +1,9 @@
 // The SDK consumes the same design tokens as the admin dashboard, so both
 // surfaces look like one product. On top of those it adds the few values
-// that only exist on mobile: sheet/bubble radii and the elevation used by
-// the launcher and the sheet (the web side gets those from CSS).
+// that only exist on mobile: sheet/bubble radii, the elevation used by the
+// launcher and the sheet (the web side gets those from CSS), and a re-cut of
+// the surfaces and text ramp for a sheet held at arm's length (see
+// SHEET_OVERRIDES).
 import {
   darkColors,
   lightColors,
@@ -11,7 +13,7 @@ import {
   type ThemeColors,
 } from '@appsupportkit/design-tokens';
 import type { ViewStyle } from 'react-native';
-import type { ThemeName } from './types';
+import type { AccentColor, ThemeName } from './types';
 
 /** Rounder than the dashboard: touch targets read better with more radius. */
 export const supportRadii = {
@@ -26,6 +28,17 @@ export const supportRadii = {
   sheet: 24,
   pill: 999,
 } as const;
+
+export interface SupportColors extends ThemeColors {
+  /** The sheet's own background — the layer every screen is drawn on. */
+  sheet: string;
+  /**
+   * The accent where it is small text — status labels, the "New" divider.
+   * The fill color can sit at 3:1; text needs 4.5:1 on the sheet and on the
+   * cards over it, so this is the accent nudged as far as that takes.
+   */
+  accentText: string;
+}
 
 export interface SupportShadows {
   /** Floating launcher button. */
@@ -52,7 +65,7 @@ export interface LauncherPalette {
 
 export interface SupportTheme {
   name: ThemeName;
-  colors: ThemeColors;
+  colors: SupportColors;
   spacing: typeof spacing;
   radii: typeof supportRadii;
   motion: typeof motion;
@@ -63,9 +76,15 @@ export interface SupportTheme {
 // Color helpers come first: the themes below are built at module load, so
 // anything they reach for has to already be initialized. (A `const` used
 // before its definition survives tsc but lands as `undefined` on Hermes.)
-const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+type Rgb = [number, number, number];
 
-function parseHex(color: string): [number, number, number] | null {
+const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const WHITE: Rgb = [255, 255, 255];
+/** Foreground for light accents — the dashboard's near-black, not pure black. */
+const INK = '#111113';
+const INK_RGB: Rgb = [17, 17, 19];
+
+function parseHex(color: string): Rgb | null {
   const match = HEX.exec(color.trim());
   const digits = match?.[1];
   if (digits === undefined) return null;
@@ -83,10 +102,93 @@ function parseHex(color: string): [number, number, number] | null {
   ];
 }
 
-function mix([r, g, b]: [number, number, number], target: number, amount: number) {
-  const channel = (c: number) => Math.round(c + (target - c) * amount);
-  return `rgb(${channel(r)}, ${channel(g)}, ${channel(b)})`;
+function toHex(rgb: Rgb): string {
+  return `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
 }
+
+function mixRgb([r, g, b]: Rgb, target: number, amount: number): Rgb {
+  const channel = (c: number) => Math.round(c + (target - c) * amount);
+  return [channel(r), channel(g), channel(b)];
+}
+
+function mix(rgb: Rgb, target: number, amount: number): string {
+  return toHex(mixRgb(rgb, target, amount));
+}
+
+/** WCAG relative luminance. */
+function luminance(rgb: Rgb): number {
+  const [r, g, b] = rgb.map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  }) as Rgb;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio, 1–21. */
+function contrast(a: Rgb, b: Rgb): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [
+    number,
+    number,
+  ];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * Nudges `color` toward white (dark theme) or black (light theme) in 5%
+ * steps until it reaches `ratio` against every background. The smallest
+ * step that works wins, so a brand color stays recognizably itself.
+ */
+function legible(
+  color: string,
+  backgrounds: string[],
+  ratio: number,
+  name: ThemeName,
+): string {
+  const rgb = parseHex(color);
+  if (rgb === null) return color;
+  const against = backgrounds
+    .map(parseHex)
+    .filter((c): c is Rgb => c !== null);
+  const target = name === 'dark' ? 255 : 0;
+  for (let step = 0; step <= 20; step += 1) {
+    const candidate = mixRgb(rgb, target, step * 0.05);
+    if (against.every((bg) => contrast(candidate, bg) >= ratio)) {
+      return toHex(candidate);
+    }
+  }
+  return name === 'dark' ? '#FFFFFF' : '#000000';
+}
+
+/**
+ * Where the SDK departs from the dashboard tokens.
+ *
+ * Dark: the sheet floats over the host app, so it takes an elevated gray the
+ * way iOS sheets do, and the cards and bubbles on it step lighter again. On
+ * the dashboard's near-black base, cards sat 1.05:1 from the background and
+ * the layering disappeared.
+ *
+ * Both: the text ramp is re-cut so every step clears WCAG AA (4.5:1) on the
+ * sheet and on the cards over it. Tertiary carries timestamps and labels at
+ * 11–12px and was 3.1:1 (dark) and 2.5:1 (light); secondary moves too, so
+ * the two stay a visible step apart.
+ */
+const SHEET_OVERRIDES: Record<ThemeName, Partial<SupportColors>> = {
+  dark: {
+    sheet: '#161618',
+    surface: '#1F1F23',
+    surfaceHover: '#26262B',
+    surfaceActive: '#2D2D33',
+    border: '#2E2E35',
+    borderStrong: '#3C3C44',
+    textSecondary: '#A3A3AB', // 6.5:1 on surface
+    textTertiary: '#87878F', // 4.6:1 on surface, 5.1:1 on sheet
+  },
+  light: {
+    sheet: lightColors.bg,
+    textSecondary: '#5A5A62', // 6.5:1 on sheet
+    textTertiary: '#717179', // 4.6:1 on sheet, 4.8:1 on surface
+  },
+};
 
 function shadowsFor(name: ThemeName, accent: string): SupportShadows {
   const dark = name === 'dark';
@@ -129,7 +231,21 @@ function launcherFor(name: ThemeName, accent: string): LauncherPalette {
   };
 }
 
-function buildTheme(name: ThemeName, colors: ThemeColors): SupportTheme {
+function buildTheme(name: ThemeName, tokens: ThemeColors): SupportTheme {
+  const base = {
+    ...tokens,
+    ...SHEET_OVERRIDES[name],
+  } as SupportColors;
+  // Status tones double as 12px labels, so they get the text bar too.
+  const onSheet = [base.sheet, base.surface];
+  const colors: SupportColors = {
+    ...base,
+    statusOpen: legible(base.statusOpen, onSheet, 4.5, name),
+    statusProgress: legible(base.statusProgress, onSheet, 4.5, name),
+    statusResolved: legible(base.statusResolved, onSheet, 4.5, name),
+    statusDanger: legible(base.statusDanger, onSheet, 4.5, name),
+    accentText: legible(base.accent, onSheet, 4.5, name),
+  };
   return {
     name,
     colors,
@@ -146,41 +262,79 @@ export const supportLightTheme: SupportTheme = buildTheme('light', lightColors);
 
 /**
  * Derives the accent family from a single brand color: a pressed shade, the
- * 12% wash used behind chips and own-message bubbles, and a foreground that
- * stays legible on top (dark text on light brands, white on dark ones).
+ * 12% wash used behind chips, a text-safe variant, and whichever of white or
+ * ink reads better on top of it.
+ *
+ * `adapt` is for a color that has to serve both themes: it is lifted just
+ * far enough to read as a fill (3:1, the WCAG bar for UI components) on this
+ * theme's sheet — a navy brand would otherwise vanish in dark mode. A color
+ * given for this mode specifically is used as is.
  */
-function withAccent(theme: SupportTheme, accent: string): SupportTheme {
-  const rgb = parseHex(accent);
-  if (!rgb) return theme;
+function withAccent(
+  theme: SupportTheme,
+  accent: string,
+  adapt: boolean,
+): SupportTheme {
+  if (parseHex(accent) === null) return theme;
+  const { name } = theme;
+  const fill = adapt
+    ? legible(accent, [theme.colors.sheet], 3, name)
+    : toHex(parseHex(accent) as Rgb);
+  const rgb = parseHex(fill) as Rgb;
   const [r, g, b] = rgb;
-  // Relative luminance, sRGB coefficients — good enough to pick a foreground.
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const colors: ThemeColors = {
+  const accentText = legible(
+    fill,
+    [theme.colors.sheet, theme.colors.surface],
+    4.5,
+    name,
+  );
+  const colors: SupportColors = {
     ...theme.colors,
-    accent,
-    accentHover: mix(rgb, theme.name === 'dark' ? 255 : 0, 0.12),
+    accent: fill,
+    accentHover: mix(rgb, name === 'dark' ? 255 : 0, 0.12),
     accentMuted: `rgba(${r}, ${g}, ${b}, 0.12)`,
-    accentForeground: luminance > 0.62 ? '#111113' : '#FFFFFF',
-    statusOpen: accent,
+    accentForeground:
+      contrast(rgb, WHITE) >= contrast(rgb, INK_RGB) ? '#FFFFFF' : INK,
+    accentText,
+    statusOpen: accentText,
     statusOpenBg: `rgba(${r}, ${g}, ${b}, 0.10)`,
-    focusRing: accent,
+    focusRing: fill,
   };
   return {
     ...theme,
     colors,
-    shadows: shadowsFor(theme.name, accent),
-    launcher: launcherFor(theme.name, accent),
+    shadows: shadowsFor(name, fill),
+    launcher: launcherFor(name, fill),
   };
 }
 
 /**
- * @param name  "light" | "dark" (default dark).
- * @param accentColor Optional brand color (hex) replacing the default accent.
+ * The theme for one resolved mode. `accent` is the color for this mode
+ * (already picked from a light/dark pair), and `adapt` says whether it was a
+ * single color that has to be made to work here.
+ */
+export function themeFor(
+  name: ThemeName,
+  accent: string | undefined,
+  adapt: boolean,
+): SupportTheme {
+  const base = name === 'light' ? supportLightTheme : supportDarkTheme;
+  return accent ? withAccent(base, accent, adapt) : base;
+}
+
+/**
+ * @param name  "light" | "dark" (default dark). SupportButton resolves its
+ *   "system" default before calling this.
+ * @param accentColor Optional brand color: one hex for both modes (adjusted
+ *   per mode where needed), or a `{ light, dark }` pair used as given.
  */
 export function resolveTheme(
   name: ThemeName | undefined,
-  accentColor?: string,
+  accentColor?: AccentColor,
 ): SupportTheme {
-  const base = name === 'light' ? supportLightTheme : supportDarkTheme;
-  return accentColor ? withAccent(base, accentColor) : base;
+  const mode: ThemeName = name === 'light' ? 'light' : 'dark';
+  if (typeof accentColor === 'object' && accentColor !== null) {
+    return themeFor(mode, accentColor[mode], false);
+  }
+  return themeFor(mode, accentColor, true);
 }

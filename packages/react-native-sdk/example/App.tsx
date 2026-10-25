@@ -2,15 +2,35 @@ import { darkColors, lightColors } from "@appsupportkit/design-tokens";
 import { SupportButton } from "@appsupportkit/support-sdk";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
 
 // Point these at your Supabase project (Settings → API → Project URL). The
 // demo key works if you ran supabase/seed.sql on that (dev) project.
 const SUPABASE_URL = "https://azfchgxaakvwtvclfnzn.supabase.co";
 const API_KEY = "sk_support_demo_habitloop_2f8a1c";
 
+// The SDK follows the app's appearance by default; the toggle cycles through
+// that and both pinned modes so each can be checked from one build.
+const THEME_CYCLE = ["system", "light", "dark"] as const;
+type ThemeChoice = (typeof THEME_CYCLE)[number];
+const THEME_LABEL: Record<ThemeChoice, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+};
+
 export default function App() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [choice, setChoice] = useState<ThemeChoice>("system");
+  const systemScheme = useColorScheme();
+  const theme =
+    choice === "system" ? (systemScheme === "dark" ? "dark" : "light") : choice;
   const colors = theme === "dark" ? darkColors : lightColors;
 
   return (
@@ -29,7 +49,12 @@ export default function App() {
         </Text>
         <View style={styles.headerActions}>
           <Pressable
-            onPress={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onPress={() =>
+              setChoice(
+                THEME_CYCLE[(THEME_CYCLE.indexOf(choice) + 1) % THEME_CYCLE.length],
+              )
+            }
+            accessibilityLabel={`Theme: ${THEME_LABEL[choice]}`}
             style={{
               height: 32,
               paddingHorizontal: 10,
@@ -42,7 +67,7 @@ export default function App() {
             }}
           >
             <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-              {theme === "dark" ? "Light" : "Dark"}
+              {THEME_LABEL[choice]}
             </Text>
           </Pressable>
         </View>
@@ -70,7 +95,7 @@ export default function App() {
           revenuecatId: "rc_anon_8f31bd2c",
           appVersion: "2.4.1",
         }}
-        theme={theme}
+        theme={choice}
         style={styles.launcher}
       />
     </SafeAreaView>

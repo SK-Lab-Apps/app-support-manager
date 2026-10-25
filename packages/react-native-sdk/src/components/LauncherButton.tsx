@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import type { SupportTheme } from '../theme';
 import type { LauncherVariant } from '../types';
-import { ChatBubbleMark } from './icons';
+import { ConversationMark } from './icons';
 
 const PRESS_SCALE = 0.93;
 
@@ -87,7 +87,7 @@ export function LauncherButton({
     : soft
       ? theme.colors.accent
       : theme.launcher.minimalMark;
-  // Dots are punched out of the bubble in whatever sits behind the mark —
+  // The gap between the bubbles is cut in whatever sits behind the mark —
   // the button's own fill, or the app background when there isn't one.
   const markHoleColor = solid
     ? theme.colors.accent
@@ -106,7 +106,7 @@ export function LauncherButton({
   const badgeFg = solid ? theme.colors.accent : theme.colors.accentForeground;
 
   const height = label ? Math.max(44, size * 0.84) : size;
-  const markSize = Math.round(size * (label ? 0.36 : 0.42));
+  const markSize = Math.round(size * (label ? 0.4 : 0.46));
 
   return (
     <Animated.View
@@ -167,7 +167,7 @@ export function LauncherButton({
           ...(variant === 'minimal' ? null : theme.shadows.launcher),
         }}
       >
-        <ChatBubbleMark color={markColor} dotColor={markHoleColor} size={markSize} />
+        <ConversationMark color={markColor} holeColor={markHoleColor} size={markSize} />
         {label !== undefined && (
           <Text
             style={{

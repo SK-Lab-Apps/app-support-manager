@@ -223,61 +223,74 @@ export function ArrowUpIcon({ color, size = 16 }: { color: string; size?: number
 }
 
 /**
- * The chat-bubble mark on the launcher button: a filled bubble with the
- * dots knocked out in the button's own fill color. Solid shapes read far
- * better than 1.5px strokes at launcher size and on top of a color fill.
+ * Geometry of the product mark on a 24-unit square: two overlapping speech
+ * bubbles, the front one cut free of the back by a gap. Kept to rounded
+ * rects and right-triangle tails so Views can draw it with no svg; the
+ * dashboard's LogoMark (apps/web/components/logo.tsx) draws the same numbers.
  */
-export function ChatBubbleMark({
+const MARK = {
+  back: { x: 1, y: 2.5, w: 14.5, h: 11, r: 4.5 },
+  /** Right angle at top-left, apex straight down. */
+  backTail: { x: 3.5, y: 12.25, w: 4.25, h: 4.25 },
+  front: { x: 8.5, y: 8.75, w: 14.5, h: 10.5, r: 4.5 },
+  /** Right angle at top-right, apex straight down. */
+  frontTail: { x: 16.5, y: 18.25, w: 4.25, h: 4.25 },
+  gap: 2,
+} as const;
+
+/**
+ * The mark on the launcher button. Solid shapes read far better than 1.5px
+ * strokes at launcher size and on top of a color fill.
+ */
+export function ConversationMark({
   color,
-  dotColor,
+  holeColor,
   size = 24,
 }: {
   color: string;
-  /** The surface behind the mark — the dots are punched out in this color. */
-  dotColor: string;
+  /** The surface behind the mark — the gap between the bubbles is cut in this color. */
+  holeColor: string;
   size?: number;
 }) {
-  const bubbleHeight = size * 0.82;
-  const dot: ViewStyle = {
-    width: size * 0.13,
-    height: size * 0.13,
-    borderRadius: size,
-    backgroundColor: dotColor,
-  };
+  const u = size / 24;
+  const rect = (
+    o: { x: number; y: number; w: number; h: number; r: number },
+    fill: string,
+    grow = 0,
+  ): ViewStyle => ({
+    position: 'absolute',
+    left: (o.x - grow) * u,
+    top: (o.y - grow) * u,
+    width: (o.w + grow * 2) * u,
+    height: (o.h + grow * 2) * u,
+    borderRadius: (o.r + grow) * u,
+    backgroundColor: fill,
+  });
+  // A zero-size box whose top border is colored and one side border is
+  // transparent renders as a right triangle; which side picks the corner.
+  const tail = (
+    o: { x: number; y: number; w: number; h: number },
+    side: 'left' | 'right',
+  ): ViewStyle => ({
+    position: 'absolute',
+    left: o.x * u,
+    top: o.y * u,
+    width: 0,
+    height: 0,
+    borderTopWidth: o.h * u,
+    borderTopColor: color,
+    ...(side === 'left'
+      ? { borderRightWidth: o.w * u, borderRightColor: 'transparent' }
+      : { borderLeftWidth: o.w * u, borderLeftColor: 'transparent' }),
+  });
+
   return (
-    <View style={{ width: size, height: size, justifyContent: 'flex-start' }}>
-      <View
-        style={{
-          width: size,
-          height: bubbleHeight,
-          borderRadius: size * 0.33,
-          backgroundColor: color,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: size * 0.115,
-        }}
-      >
-        <View style={dot} />
-        <View style={dot} />
-        <View style={dot} />
-      </View>
-      {/* Tail, drawn as a border triangle so it needs no svg. */}
-      <View
-        style={{
-          position: 'absolute',
-          left: size * 0.22,
-          top: bubbleHeight - 1,
-          width: 0,
-          height: 0,
-          borderLeftWidth: size * 0.09,
-          borderRightWidth: size * 0.16,
-          borderTopWidth: size * 0.2,
-          borderLeftColor: 'transparent',
-          borderRightColor: 'transparent',
-          borderTopColor: color,
-        }}
-      />
+    <View style={{ width: size, height: size }}>
+      <View style={rect(MARK.back, color)} />
+      <View style={tail(MARK.backTail, 'left')} />
+      <View style={rect(MARK.front, holeColor, MARK.gap)} />
+      <View style={rect(MARK.front, color)} />
+      <View style={tail(MARK.frontTail, 'right')} />
     </View>
   );
 }
