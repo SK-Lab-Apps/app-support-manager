@@ -42,6 +42,9 @@ async function sha256Hex(input: string): Promise<string> {
 /**
  * Validates the x-api-key header (and, when provided, the claimed app name).
  * Returns the app row or null if the key is invalid.
+ *
+ * Accepts the app's current key, or the key it replaced while that key's
+ * rotation grace period lasts (see the api_key_rotation migration).
  */
 export async function authenticateApp(
   req: Request,
@@ -51,14 +54,24 @@ export async function authenticateApp(
   const apiKey = req.headers.get('x-api-key');
   if (!apiKey) return null;
 
+  // Hex digest, so it is safe to interpolate into the filter.
   const hash = await sha256Hex(apiKey);
   const { data, error } = await supabase
     .from('apps')
-    .select('id, name')
-    .eq('api_key_hash', hash)
+    .select('id, name, api_key_hash, previous_key_expires_at')
+    .or(`api_key_hash.eq.${hash},previous_api_key_hash.eq.${hash}`)
     .maybeSingle();
 
   if (error || !data) return null;
+  if (
+    data.api_key_hash !== hash &&
+    !(
+      data.previous_key_expires_at &&
+      Date.parse(data.previous_key_expires_at) > Date.now()
+    )
+  ) {
+    return null;
+  }
   if (claimedAppName !== undefined && data.name !== claimedAppName) return null;
-  return data as AuthedApp;
+  return { id: data.id, name: data.name };
 }

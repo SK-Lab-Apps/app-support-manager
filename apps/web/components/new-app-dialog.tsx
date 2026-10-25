@@ -1,10 +1,11 @@
 'use client';
 
-import { Check, Copy, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { generateApiKey, sha256Hex } from '@/lib/utils';
+import { ApiKeyField } from '@/components/api-key-field';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 
 /**
@@ -27,7 +27,6 @@ export function NewAppDialog({ adminId }: { adminId: string }) {
   const [rawKey, setRawKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   async function handleCreate() {
     setError(null);
@@ -56,13 +55,6 @@ export function NewAppDialog({ adminId }: { adminId: string }) {
     setRawKey(key);
     setCreating(false);
     router.refresh();
-  }
-
-  async function copyKey() {
-    if (!rawKey) return;
-    await navigator.clipboard.writeText(rawKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   }
 
   function handleOpenChange(next: boolean) {
@@ -128,25 +120,8 @@ export function NewAppDialog({ adminId }: { adminId: string }) {
               This key is shown once and cannot be recovered. Store it in your
               app&apos;s secret config now.
             </DialogDescription>
-            <div className="mt-4 flex items-center gap-2 rounded-control border border-border bg-surface py-1 pl-2.5 pr-1">
-              <code className="tnum min-w-0 flex-1 truncate font-mono text-xs text-primary">
-                {rawKey}
-              </code>
-              <IconButton
-                onClick={copyKey}
-                aria-label="Copy API key"
-                className="h-7 w-7 coarse:h-[38px] coarse:w-[38px]"
-              >
-                {copied ? (
-                  <Check
-                    size={13}
-                    strokeWidth={1.5}
-                    className="text-status-resolved"
-                  />
-                ) : (
-                  <Copy size={13} strokeWidth={1.5} />
-                )}
-              </IconButton>
+            <div className="mt-4">
+              <ApiKeyField rawKey={rawKey} />
             </div>
             <div className="mt-4 flex justify-end">
               <Button variant="secondary" onClick={() => handleOpenChange(false)}>

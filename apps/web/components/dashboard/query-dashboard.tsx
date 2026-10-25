@@ -26,6 +26,7 @@ import { LanguageChip, PaidTag, StatusIndicator } from "@/components/ui/chips";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { ThreadPanel } from "@/components/dashboard/thread-panel";
+import { RotateKeyDialog } from "@/components/rotate-key-dialog";
 
 function FilterSelect<T extends string>({
   value,
@@ -237,6 +238,7 @@ export function QueryDashboard({
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-heading sm:mr-2 sm:flex-none">
           {appName}
         </h1>
+        {appId && <RotateKeyDialog appId={appId} appName={appName} />}
         <div className="relative w-full sm:ml-auto sm:w-56">
           <Search
             size={13}

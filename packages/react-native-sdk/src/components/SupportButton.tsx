@@ -15,7 +15,11 @@ import {
   deviceLanguage,
   type Language,
 } from '../i18n/languages';
-import { ensurePushPermission, isPushAvailable } from '../push';
+import {
+  ensurePushPermission,
+  isPushAvailable,
+  onSupportNotificationTap,
+} from '../push';
 import { resolveTheme } from '../theme';
 import type { QueryType, SupportButtonProps, Thread } from '../types';
 import { IDLE_POLL_MS, useSupportThreads } from '../useSupportThreads';
@@ -128,6 +132,19 @@ export function SupportButton(props: SupportButtonProps) {
       // Push is an enhancement — never surfaced to the user as an error.
     }
   }, [config, props.user.revenuecatId, props.expoProjectId, validationError]);
+
+  // A tapped support-reply notification opens straight into its thread. If
+  // the threads haven't loaded yet (cold start), the sheet shows the list
+  // until they do, then switches over.
+  useEffect(() => {
+    if (validationError !== null) return;
+    return onSupportNotificationTap((threadId) => {
+      setDraftLanguage(null);
+      setLanguageError(null);
+      setScreen({ name: 'thread', threadId });
+      setSheetOpen(true);
+    });
+  }, [validationError]);
 
   function openSheet() {
     setScreen({ name: 'home' });

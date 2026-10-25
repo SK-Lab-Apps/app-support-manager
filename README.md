@@ -112,7 +112,16 @@ The login page resolves username → email via the `admin_email_for_username` RP
 
 ### Registering an app
 
-In the dashboard sidebar: **Add app** → name it → copy the generated API key from the one-time dialog. Only the key's SHA-256 hash is stored; if the key is lost, register a new app.
+In the dashboard sidebar: **Add app** → name it → copy the generated API key from the one-time dialog. Only the key's SHA-256 hash is stored, so a lost key can't be recovered — rotate it instead.
+
+### Rotating an app's key
+
+On the app's page, the key icon beside its name opens **Rotate API key**. Every installed copy of the host app carries the current key, so you choose when it retires:
+
+- **In 30 days** (default) or **in 7 days** — routine rotation. Both keys work until then, while the release with the new key rolls out.
+- **Now** — for a leaked key. Installed copies lose support until users update.
+
+The new key is shown once, like at registration. Only one old key is kept: rotating again during a grace period cuts the older one off immediately (the dialog says so first), and **Revoke it now** ends a grace period early.
 
 ## Using the SDK
 
@@ -193,6 +202,8 @@ npx expo install expo-notifications
 
 Skip it and everything else works unchanged — the SDK detects its absence at runtime and never calls it. **A user who denies permission keeps full use of every feature**; the outcome is recorded only so the dashboard can show whether they're reachable, displayed on the thread panel as *Push on* / *Push denied* / *Push not asked*.
 
+Tapping a support-reply notification opens the sheet straight into that thread — from the background or a cold start, no host code needed. If the launcher isn't mounted when the tap arrives (it lives behind sign-in, or on a settings screen), the thread opens when it mounts, provided that's within a minute; after that the tap is dropped rather than popping the sheet open unprompted later. With several launchers mounted, the most recently mounted one takes it.
+
 Push tokens require a development or production build — `getExpoPushTokenAsync` cannot mint one in Expo Go. A granted permission with no token is recorded as such and shown distinctly on hover in the dashboard.
 
 ### Example app
@@ -229,8 +240,8 @@ Edge Functions run on Deno and are excluded from the Node toolchain; check them 
 ## Security model
 
 - **anon role**: zero direct table access — RLS is enabled everywhere with no anon policies, and default grants are revoked. End users only reach data through Edge Functions.
-- **Edge Functions**: validate the `x-api-key` header by SHA-256 hash against `apps.api_key_hash`, verify the claimed `app_name` matches that key, and scope every read/write to that app + `revenuecat_id`.
-- **Admins**: any row in `admins` matching `auth.uid()` gets full select/insert/update via RLS. No roles, no signup.
+- **Edge Functions**: validate the `x-api-key` header by SHA-256 hash against `apps.api_key_hash` (or `previous_api_key_hash` while a rotation's grace period lasts), verify the claimed `app_name` matches that key, and scope every read/write to that app + `revenuecat_id`.
+- **Admins**: any row in `admins` matching `auth.uid()` gets select/insert/update via RLS. No roles, no signup. Messages are the exception: an admin can only insert a reply as themself (`sender = 'admin'`, `admin_id = auth.uid()`, no translation of their own), and can't update messages at all — translations are written by the Edge Functions.
 - **No deletes**: no DELETE policies exist for anyone — queries and messages are an immutable audit trail.
 - **Char limits**: user messages 10–300, admin messages ≤1000 — enforced in the clients, in the Edge Functions, and by CHECK constraints.
 - **Push status**: `push_subscriptions` is written only by the `register-push` function (service role) and readable only by admins. `send-push` is the single staff-facing function — it requires an admin JWT, not an API key, and verifies membership in `admins` before sending.
