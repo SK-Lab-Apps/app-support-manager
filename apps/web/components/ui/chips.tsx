@@ -6,14 +6,17 @@ import {
   Languages,
   Lightbulb,
   MessageSquare,
+  MessagesSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { languageName } from '@/lib/languages';
 import {
   QUERY_TYPE_LABEL,
   type PushSubscriptionRow,
+  PLAN_LABEL,
   type QueryStatus,
   type QueryType,
+  type UserPlan,
 } from '@/lib/types';
 
 /** Status dot + label. Muted colors, never a saturated pill. */
@@ -47,12 +50,14 @@ const typeIcon: Record<QueryType, typeof Bug> = {
   bug_report: Bug,
   feature_request: Lightbulb,
   feedback: MessageSquare,
+  support: MessagesSquare,
 };
 
 const typeClasses: Record<QueryType, string> = {
   bug_report: 'text-status-danger bg-status-danger-bg',
   feature_request: 'text-status-progress bg-status-progress-bg',
   feedback: 'text-status-open bg-status-open-bg',
+  support: 'text-secondary bg-surface-active',
 };
 
 /** Tinted type chip: ~10% opacity background, full-opacity text. */
@@ -163,16 +168,30 @@ export function LanguageChip({
   );
 }
 
-/** Subtle paid indicator. */
-export function PaidTag({ className }: { className?: string }) {
+const planClasses: Record<UserPlan, string> = {
+  // Paying users carry the accent; trials are outlined; free stays quiet.
+  pro: 'border-transparent bg-accent-muted text-accent',
+  trial: 'border-border text-secondary',
+  free: 'border-transparent text-tertiary',
+};
+
+/** The user's plan: PRO, Trial or Free, in descending emphasis. */
+export function PlanChip({
+  plan,
+  className,
+}: {
+  plan: UserPlan;
+  className?: string;
+}) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-[4px] border border-border px-1 py-px text-[10px] font-semibold tracking-wide text-secondary',
+        'inline-flex items-center rounded-[4px] border px-1 py-px text-[10px] font-semibold uppercase tracking-wide',
+        planClasses[plan],
         className,
       )}
     >
-      PRO
+      {PLAN_LABEL[plan]}
     </span>
   );
 }

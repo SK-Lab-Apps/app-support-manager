@@ -91,7 +91,7 @@ export default function App() {
         supabaseUrl={SUPABASE_URL}
         user={{
           name: "Maya Okafor",
-          isPaid: true,
+          plan: "pro", // "free" | "trial" | "pro"
           revenuecatId: "rc_anon_8f31bd2c",
           appVersion: "2.4.1",
         }}

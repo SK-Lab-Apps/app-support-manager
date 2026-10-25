@@ -19,6 +19,8 @@ type QueryType = 'feedback' | 'feature_request' | 'bug_report';
 interface PushCopy {
   subjects: Record<QueryType, string>;
   replied: (subject: string) => string;
+  /** For the support chat, which has no subject to name. */
+  repliedInChat: string;
 }
 
 const COPY: Record<string, PushCopy> = {
@@ -29,6 +31,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'to your bug report',
     },
     replied: (subject) => `The support team replied ${subject}`,
+    repliedInChat: 'The support team replied',
   },
   es: {
     subjects: {
@@ -37,6 +40,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'a tu informe de error',
     },
     replied: (subject) => `El equipo de soporte respondió ${subject}`,
+    repliedInChat: 'El equipo de soporte respondió',
   },
   fr: {
     subjects: {
@@ -45,6 +49,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'à votre signalement de bug',
     },
     replied: (subject) => `L'équipe d'assistance a répondu ${subject}`,
+    repliedInChat: "L'équipe d'assistance a répondu",
   },
   de: {
     subjects: {
@@ -53,6 +58,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'auf deinen Fehlerbericht',
     },
     replied: (subject) => `Das Support-Team hat ${subject} geantwortet`,
+    repliedInChat: 'Das Support-Team hat geantwortet',
   },
   nl: {
     subjects: {
@@ -61,6 +67,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'op je bugmelding',
     },
     replied: (subject) => `Het supportteam heeft ${subject} gereageerd`,
+    repliedInChat: 'Het supportteam heeft gereageerd',
   },
   pt: {
     subjects: {
@@ -69,6 +76,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'ao seu relato de bug',
     },
     replied: (subject) => `A equipe de suporte respondeu ${subject}`,
+    repliedInChat: 'A equipe de suporte respondeu',
   },
   it: {
     subjects: {
@@ -77,6 +85,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'alla tua segnalazione di bug',
     },
     replied: (subject) => `Il team di assistenza ha risposto ${subject}`,
+    repliedInChat: 'Il team di assistenza ha risposto',
   },
   pl: {
     subjects: {
@@ -85,6 +94,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'na Twoje zgłoszenie błędu',
     },
     replied: (subject) => `Zespół pomocy odpowiedział ${subject}`,
+    repliedInChat: 'Zespół pomocy odpowiedział',
   },
   tr: {
     subjects: {
@@ -93,6 +103,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'hata bildiriminizi',
     },
     replied: (subject) => `Destek ekibi ${subject} yanıtladı`,
+    repliedInChat: 'Destek ekibi yanıtladı',
   },
   ru: {
     subjects: {
@@ -101,6 +112,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'на ваше сообщение об ошибке',
     },
     replied: (subject) => `Команда поддержки ответила ${subject}`,
+    repliedInChat: 'Команда поддержки ответила',
   },
   ja: {
     subjects: {
@@ -109,6 +121,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'バグ報告',
     },
     replied: (subject) => `サポートチームが${subject}に返信しました`,
+    repliedInChat: 'サポートチームが返信しました',
   },
   ko: {
     subjects: {
@@ -117,6 +130,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: '버그 신고',
     },
     replied: (subject) => `고객지원팀이 ${subject}에 답변했습니다`,
+    repliedInChat: '고객지원팀이 답변했습니다',
   },
   zh: {
     subjects: {
@@ -125,6 +139,7 @@ const COPY: Record<string, PushCopy> = {
       bug_report: '错误报告',
     },
     replied: (subject) => `客服团队回复了你的${subject}`,
+    repliedInChat: '客服团队回复了你',
   },
   hi: {
     subjects: {
@@ -133,12 +148,14 @@ const COPY: Record<string, PushCopy> = {
       bug_report: 'आपकी बग रिपोर्ट',
     },
     replied: (subject) => `सहायता टीम ने ${subject} का जवाब दिया`,
+    repliedInChat: 'सहायता टीम ने जवाब दिया',
   },
 };
 
 /**
  * Notification body for "the support team replied", in the end user's
- * language. Unknown languages and unknown query types both fall back to
+ * language. A support chat gets the plain "replied"; the typed threads name
+ * what was answered. Unknown languages and unknown query types both fall back to
  * English.
  */
 export function replyNotification(
@@ -146,6 +163,7 @@ export function replyNotification(
   queryType: string,
 ): string {
   const copy = COPY[language] ?? COPY.en!;
+  if (queryType === 'support') return copy.repliedInChat;
   const subject =
     copy.subjects[queryType as QueryType] ?? COPY.en!.subjects.feedback;
   return copy.replied(subject);

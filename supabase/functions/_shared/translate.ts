@@ -42,6 +42,7 @@ How to translate:
 - Translate meaning, not words. These messages are informal and often hurried: keep the register and the tone, including frustration or warmth, rather than smoothing it into corporate prose.
 - Leave untranslated: product names, usernames, URLs, file paths, error codes, stack traces, code, version numbers, and anything inside backticks.
 - Preserve line breaks and list structure.
+- Leave anything in curly braces, like {first_name} or {app}, exactly as written: those are placeholders filled in after translation.
 - If the text is already in the target language, return it unchanged.
 - If it is too short or ambiguous to translate — a bare "ok", a single emoji — return it unchanged.
 

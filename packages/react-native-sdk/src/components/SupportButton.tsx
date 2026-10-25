@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Text, useColorScheme, View } from 'react-native';
+import { Platform, Text, useColorScheme, View } from 'react-native';
 import {
-  postMessage,
   registerPush,
+  registerUser,
+  reviewOpened,
+  sendMessage,
   setLanguage as setLanguageRequest,
-  submitQuery,
   SupportApiError,
   type ApiConfig,
 } from '../api';
@@ -20,32 +21,22 @@ import {
   isPushAvailable,
   onSupportNotificationTap,
 } from '../push';
+import { openStoreReview, storeLinks, storePlatform } from '../review';
 import { themeFor } from '../theme';
-import type {
-  QueryType,
-  SupportButtonProps,
-  ThemeName,
-  Thread,
-} from '../types';
+import type { SupportButtonProps, ThemeName } from '../types';
 import { IDLE_POLL_MS, useSupportThreads } from '../useSupportThreads';
-import { validateProps } from '../utils';
+import { userPlan, validateProps } from '../utils';
 import { BottomSheet } from './BottomSheet';
 import { LauncherButton } from './LauncherButton';
-import { ComposeScreen } from './screens/ComposeScreen';
-import { HomeScreen } from './screens/HomeScreen';
+import { ChatScreen } from './screens/ChatScreen';
 import { LanguageScreen } from './screens/LanguageScreen';
-import { ThreadScreen } from './screens/ThreadScreen';
 
-type Screen =
-  | { name: 'home' }
-  | { name: 'language' }
-  | { name: 'compose'; type: QueryType }
-  | { name: 'thread'; threadId: string };
+type Screen = 'chat' | 'language';
 
 /**
  * The single entry point of the SDK: a launcher with an unread badge that
- * opens the support bottom sheet. Threads, polling, and read receipts are
- * handled by useSupportThreads.
+ * opens the support chat in a bottom sheet. Conversations, polling, and read
+ * receipts are handled by useSupportThreads.
  */
 export function SupportButton(props: SupportButtonProps) {
   const validationError = validateProps(props);
@@ -81,26 +72,7 @@ export function SupportButton(props: SupportButtonProps) {
   );
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [screen, setScreen] = useState<Screen>({ name: 'home' });
-
-  const {
-    threads,
-    totalUnread,
-    loading,
-    refreshing,
-    errorKey,
-    serverLanguage,
-    languageLoaded,
-    refresh,
-    reload,
-  } = useSupportThreads({
-    config,
-    revenuecatId: props.user.revenuecatId,
-    enabled: validationError === null,
-    sheetOpen,
-    activeThreadId: screen.name === 'thread' ? screen.threadId : null,
-    idlePollMs: props.pollIntervalMs ?? IDLE_POLL_MS,
-  });
+  const [screen, setScreen] = useState<Screen>('chat');
 
   /**
    * What the user picked, once they have picked. Until then the sheet is
@@ -108,6 +80,28 @@ export function SupportButton(props: SupportButtonProps) {
    * guess — hence `chosen`, which is what decides whether to ask.
    */
   const [chosen, setChosen] = useState<Language | null>(null);
+
+  const {
+    threads,
+    totalUnread,
+    loading,
+    errorKey,
+    serverLanguage,
+    languageLoaded,
+    store,
+    refresh,
+    reload,
+  } = useSupportThreads({
+    config,
+    revenuecatId: props.user.revenuecatId,
+    enabled: validationError === null,
+    sheetOpen,
+    // Not while the first-run language prompt covers it: nothing behind
+    // the prompt has been seen, so nothing may be marked read.
+    chatVisible: sheetOpen && screen === 'chat' && chosen !== null,
+    idlePollMs: props.pollIntervalMs ?? IDLE_POLL_MS,
+  });
+
   const [draftLanguage, setDraftLanguage] = useState<Language | null>(null);
   const [savingLanguage, setSavingLanguage] = useState(false);
   const [languageError, setLanguageError] = useState<string | null>(null);
@@ -155,21 +149,60 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }, [config, props.user.revenuecatId, props.expoProjectId, validationError]);
 
-  // A tapped support-reply notification opens straight into its thread. If
-  // the threads haven't loaded yet (cold start), the sheet shows the list
-  // until they do, then switches over.
+  const { name: userName, revenuecatId, appVersion } = props.user;
+  const plan = userPlan(props.user);
+
+  /**
+   * Reports the user on load, and whenever who they are changes, so the team
+   * can find and message them before they ever open support. Refreshes the
+   * push token too when permission was already granted — never prompting:
+   * the OS prompt only appears once the user opens support.
+   */
   useEffect(() => {
     if (validationError !== null) return;
-    return onSupportNotificationTap((threadId) => {
+    registerUser(config, {
+      revenuecatId,
+      user: { name: userName, plan, appVersion, platform: storePlatform() },
+    }).catch(() => {
+      // Best effort; the next load reports again.
+    });
+    if (!isPushAvailable) return;
+    void (async () => {
+      const registration = await ensurePushPermission(props.expoProjectId, {
+        prompt: false,
+      });
+      if (registration.status !== 'granted') return;
+      await registerPush(config, {
+        revenuecatId,
+        permissionStatus: registration.status,
+        expoPushToken: registration.token,
+        asked: false,
+      });
+    })().catch(() => {});
+  }, [
+    config,
+    validationError,
+    revenuecatId,
+    userName,
+    plan,
+    appVersion,
+    props.expoProjectId,
+  ]);
+
+  // A tapped support-reply notification opens the chat. If the threads
+  // haven't loaded yet (cold start), it fills in as soon as they do.
+  useEffect(() => {
+    if (validationError !== null) return;
+    return onSupportNotificationTap(() => {
       setDraftLanguage(null);
       setLanguageError(null);
-      setScreen({ name: 'thread', threadId });
+      setScreen('chat');
       setSheetOpen(true);
     });
   }, [validationError]);
 
   function openSheet() {
-    setScreen({ name: 'home' });
+    setScreen('chat');
     setSheetOpen(true);
     // The OS prompt appears right as the sheet opens; if the user declines,
     // everything below carries on exactly as before.
@@ -178,7 +211,7 @@ export function SupportButton(props: SupportButtonProps) {
 
   function closeSheet() {
     setSheetOpen(false);
-    setScreen({ name: 'home' });
+    setScreen('chat');
     setDraftLanguage(null);
     setLanguageError(null);
   }
@@ -232,7 +265,7 @@ export function SupportButton(props: SupportButtonProps) {
       });
       setChosen(next);
       setDraftLanguage(null);
-      setScreen({ name: 'home' });
+      setScreen('chat');
       // On a change, the server re-queues existing replies for translation
       // into the new language; they arrive over the next poll or two.
       void reload();
@@ -247,37 +280,13 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }
 
-  async function handleSubmit(
-    type: QueryType,
-    message: string,
-  ): Promise<string | null> {
+  async function handleSend(message: string): Promise<string | null> {
     try {
-      await submitQuery(config, {
-        queryType: type,
-        message,
-        userName: props.user.name,
-        isPaid: props.user.isPaid,
-        revenuecatId: props.user.revenuecatId,
-        appVersion: props.user.appVersion,
-        language,
-      });
-      void reload();
-      return null;
-    } catch (e) {
-      return writeErrorMessage(e);
-    }
-  }
-
-  async function handleSend(
-    threadId: string,
-    message: string,
-  ): Promise<string | null> {
-    try {
-      await postMessage(config, {
-        queryId: threadId,
-        revenuecatId: props.user.revenuecatId,
+      await sendMessage(config, {
+        revenuecatId,
         message,
         language,
+        user: { name: userName, plan, appVersion, platform: storePlatform() },
       });
       await reload();
       return null;
@@ -286,33 +295,20 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }
 
-  const activeThread: Thread | null =
-    screen.name === 'thread'
-      ? ((threads ?? []).find((t) => t.id === screen.threadId) ?? null)
-      : null;
+  const reviewLinks = storeLinks(store);
+  const reviewLabel =
+    reviewLinks === null
+      ? null
+      : strings.t(Platform.OS === 'ios' ? 'review.appStore' : 'review.playStore');
 
-  const home = (
-    <HomeScreen
-      theme={theme}
-      strings={strings}
-      language={language}
-      threads={threads}
-      loading={loading}
-      refreshing={refreshing}
-      error={errorKey === null ? null : strings.t(errorKey)}
-      onRefresh={refresh}
-      onCompose={(type) => setScreen({ name: 'compose', type })}
-      onOpenThread={(thread) =>
-        setScreen({ name: 'thread', threadId: thread.id })
-      }
-      onChangeLanguage={() => {
-        setDraftLanguage(language);
-        setLanguageError(null);
-        setScreen({ name: 'language' });
-      }}
-      onClose={closeSheet}
-    />
-  );
+  /** Opens the store's review page and lets the team know it was tapped. */
+  function openReview(messageId: string) {
+    if (reviewLinks === null) return;
+    void openStoreReview(reviewLinks);
+    reviewOpened(config, { revenuecatId, messageId }).catch(() => {
+      // The receipt is for the dashboard; the user already has the store.
+    });
+  }
 
   const languagePicker = (
     <LanguageScreen
@@ -329,7 +325,7 @@ export function SupportButton(props: SupportButtonProps) {
           : () => {
               setDraftLanguage(null);
               setLanguageError(null);
-              setScreen({ name: 'home' });
+              setScreen('chat');
             }
       }
       onDismiss={mustChooseLanguage ? closeSheet : undefined}
@@ -353,33 +349,27 @@ export function SupportButton(props: SupportButtonProps) {
       <BottomSheet visible={sheetOpen} onClose={closeSheet} theme={theme}>
         {/* The one-time prompt outranks whatever screen the user is on: it
             only ever fires before they have sent anything. */}
-        {mustChooseLanguage || screen.name === 'language' ? (
+        {mustChooseLanguage || screen === 'language' ? (
           languagePicker
         ) : (
-          <>
-            {screen.name === 'home' && home}
-            {screen.name === 'compose' && (
-              <ComposeScreen
-                theme={theme}
-                strings={strings}
-                type={screen.type}
-                onBack={() => setScreen({ name: 'home' })}
-                onSubmit={(message) => handleSubmit(screen.type, message)}
-              />
-            )}
-            {screen.name === 'thread' &&
-              (activeThread !== null ? (
-                <ThreadScreen
-                  theme={theme}
-                  strings={strings}
-                  thread={activeThread}
-                  onBack={() => setScreen({ name: 'home' })}
-                  onSend={(message) => handleSend(activeThread.id, message)}
-                />
-              ) : (
-                home
-              ))}
-          </>
+          <ChatScreen
+            theme={theme}
+            strings={strings}
+            language={language}
+            threads={threads}
+            loading={loading}
+            error={errorKey === null ? null : strings.t(errorKey)}
+            onRetry={refresh}
+            onSend={handleSend}
+            onChangeLanguage={() => {
+              setDraftLanguage(language);
+              setLanguageError(null);
+              setScreen('language');
+            }}
+            onClose={closeSheet}
+            reviewLabel={reviewLabel}
+            onOpenReview={openReview}
+          />
         )}
       </BottomSheet>
     </>

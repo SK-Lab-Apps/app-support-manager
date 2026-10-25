@@ -33,60 +33,6 @@ export function ChatIcon({ color, size = 16 }: { color: string; size?: number })
   );
 }
 
-export function PlusCircleIcon({ color, size = 16 }: { color: string; size?: number }) {
-  const bar = size * 0.45;
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderWidth: STROKE,
-        borderColor: color,
-        borderRadius: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <View style={{ width: bar, height: STROKE, backgroundColor: color }} />
-      <View
-        style={{
-          width: STROKE,
-          height: bar,
-          backgroundColor: color,
-          position: 'absolute',
-        }}
-      />
-    </View>
-  );
-}
-
-export function AlertCircleIcon({ color, size = 16 }: { color: string; size?: number }) {
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderWidth: STROKE,
-        borderColor: color,
-        borderRadius: size,
-        alignItems: 'center',
-        paddingTop: size * 0.2,
-      }}
-    >
-      <View style={{ width: STROKE, height: size * 0.32, backgroundColor: color }} />
-      <View
-        style={{
-          width: STROKE + 0.5,
-          height: STROKE + 0.5,
-          borderRadius: 2,
-          backgroundColor: color,
-          marginTop: size * 0.09,
-        }}
-      />
-    </View>
-  );
-}
-
 /** Chevron built from two borders, rotated. direction: right | left | down. */
 export function Chevron({
   color,

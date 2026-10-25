@@ -16,7 +16,8 @@ const BodySchema = z.object({
   query_id: z.string().uuid(),
   revenuecat_id: z.string().trim().min(1).max(200),
   // Char limits enforced server-side here AND by the messages table CHECK.
-  message: z.string().trim().min(10).max(300),
+  // Builds before 0.4 hold themselves to 10–300 on the device.
+  message: z.string().trim().min(1).max(1000),
   // The language this message is written in. Sent by the SDK on every write
   // so the stored preference stays fresh even if set-language never landed.
   language: z.string().trim().refine(isSupportedLanguage).optional(),

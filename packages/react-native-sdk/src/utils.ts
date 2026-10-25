@@ -1,25 +1,8 @@
 import type { Translator } from './i18n';
+import type { SupportUser, UserPlan } from './types';
 
 // Dates and times follow the language the user picked, not the device's:
 // a sheet that says "Traduction…" above "2 days ago" reads as broken.
-
-/** "2h ago" relative time — mirrors the web dashboard's formatting. */
-export function relativeTime(iso: string, strings: Translator): string {
-  const then = new Date(iso).getTime();
-  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (seconds < 60) return strings.t('time.justNow');
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return strings.t('time.minutes', { count: minutes });
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return strings.t('time.hours', { count: hours });
-  const days = Math.floor(hours / 24);
-  if (days < 7) return strings.t('time.days', { count: days });
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return strings.t('time.weeks', { count: weeks });
-  const months = Math.floor(days / 30);
-  if (months < 12) return strings.t('time.months', { count: months });
-  return strings.t('time.years', { count: Math.floor(days / 365) });
-}
 
 export function formatDate(iso: string, strings: Translator): string {
   return new Date(iso).toLocaleDateString(strings.locale, {
@@ -62,6 +45,13 @@ export function dayLabel(iso: string, strings: Translator): string {
   });
 }
 
+const PLANS: UserPlan[] = ['free', 'trial', 'pro'];
+
+/** The user's plan, reading the deprecated `isPaid` when `plan` is absent. */
+export function userPlan(user: SupportUser): UserPlan {
+  return user.plan ?? (user.isPaid ? 'pro' : 'free');
+}
+
 /** Dev-mode prop validation with actionable messages. */
 export function validateProps(props: {
   appName?: unknown;
@@ -83,13 +73,16 @@ export function validateProps(props: {
   }
   const user = props.user as Record<string, unknown> | undefined;
   if (!user || typeof user !== 'object') {
-    return 'SupportButton: `user` is required — { name, isPaid, revenuecatId, appVersion }.';
+    return 'SupportButton: `user` is required — { name, plan, revenuecatId, appVersion }.';
   }
   if (typeof user.name !== 'string' || user.name.length === 0) {
     return 'SupportButton: `user.name` is required (string).';
   }
-  if (typeof user.isPaid !== 'boolean') {
-    return 'SupportButton: `user.isPaid` is required (boolean).';
+  if (user.plan !== undefined && !PLANS.includes(user.plan as UserPlan)) {
+    return 'SupportButton: `user.plan` must be "free", "trial" or "pro".';
+  }
+  if (user.plan === undefined && typeof user.isPaid !== 'boolean') {
+    return 'SupportButton: `user.plan` is required — "free", "trial" or "pro".';
   }
   if (typeof user.revenuecatId !== 'string' || user.revenuecatId.length === 0) {
     return 'SupportButton: `user.revenuecatId` is required (string) — the RevenueCat app user id.';

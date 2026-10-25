@@ -8,6 +8,6 @@ export default async function AllAppsPage() {
   } = await supabase.auth.getUser();
 
   return (
-    <QueryDashboard appId={null} appName="All apps" adminId={user?.id ?? ''} />
+    <QueryDashboard appId={null} title="All apps" adminId={user?.id ?? ''} />
   );
 }

@@ -33,7 +33,12 @@ export default async function DashboardLayout({
 
   const [{ data: apps }, { data: openQueries }] = await Promise.all([
     supabase.from('apps').select('id, name, created_at').order('name'),
-    supabase.from('queries').select('app_id').eq('status', 'open'),
+    // Conversations we started count once the user has written back.
+    supabase
+      .from('queries')
+      .select('app_id')
+      .eq('status', 'open')
+      .not('first_user_message_at', 'is', null),
   ]);
 
   const openCounts = new Map<string, number>();

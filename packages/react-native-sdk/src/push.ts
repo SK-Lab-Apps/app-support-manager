@@ -67,13 +67,16 @@ function normalizeStatus(status: string): PushPermissionStatus {
 
 /**
  * Ensures notification permission has been requested, and returns the
- * outcome plus an Expo push token when one is obtainable.
+ * outcome plus an Expo push token when one is obtainable. With
+ * `prompt: false` it only reads the current state — for refreshing the token
+ * at launch without ever showing the OS prompt outside the support sheet.
  *
  * Never throws: any failure resolves to an 'undetermined' registration so
  * callers can report it and move on.
  */
 export async function ensurePushPermission(
   expoProjectId?: string,
+  { prompt = true }: { prompt?: boolean } = {},
 ): Promise<PushRegistration> {
   if (!notifications) {
     return { status: 'undetermined', asked: false, token: null };
@@ -86,7 +89,7 @@ export async function ensurePushPermission(
 
     // Only prompt when the OS will actually show something. Re-prompting a
     // user who already decided is impossible on iOS and annoying on Android.
-    if (status === 'undetermined' && current.canAskAgain) {
+    if (prompt && status === 'undetermined' && current.canAskAgain) {
       const requested = await notifications.requestPermissionsAsync();
       status = normalizeStatus(requested.status);
       asked = true;

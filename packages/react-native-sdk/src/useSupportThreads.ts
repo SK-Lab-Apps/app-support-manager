@@ -22,7 +22,7 @@ import {
   type ApiConfig,
 } from './api';
 import type { StringKey } from './i18n';
-import type { Thread } from './types';
+import type { StoreListing, Thread } from './types';
 import {
   latestAdminMessageAt,
   pruneWatermarks,
@@ -31,11 +31,11 @@ import {
   type ReadWatermarks,
 } from './unread';
 
-// Poll cadence by context: fast where latency is felt (staring at a thread
+// Poll cadence by context: fast where latency is felt (looking at the chat,
 // waiting for a reply), slow when the sheet is closed — and the idle tick
 // uses the count-only endpoint, so it costs ~18 bytes instead of the full
 // thread list.
-const THREAD_POLL_MS = 5_000;
+const CHAT_POLL_MS = 5_000;
 const SHEET_POLL_MS = 15_000;
 export const IDLE_POLL_MS = 60_000;
 const MIN_POLL_MS = 3_000;
@@ -102,6 +102,8 @@ export interface SupportThreadsState {
    * answered on another device.
    */
   languageLoaded: boolean;
+  /** The app's store listings, for review request buttons. */
+  store: StoreListing | null;
   /** User-initiated refresh (pull-to-refresh, retry button). */
   refresh: () => void;
   /** Awaited by send/submit handlers so the list reflects the write. */
@@ -113,7 +115,7 @@ export function useSupportThreads({
   revenuecatId,
   enabled,
   sheetOpen,
-  activeThreadId,
+  chatVisible,
   idlePollMs,
 }: {
   config: ApiConfig;
@@ -121,7 +123,11 @@ export function useSupportThreads({
   /** False when props failed validation — no requests are made. */
   enabled: boolean;
   sheetOpen: boolean;
-  activeThreadId: string | null;
+  /**
+   * The chat is on screen. It shows every conversation at once, so all of
+   * them are read while it is — including replies that arrive meanwhile.
+   */
+  chatVisible: boolean;
   idlePollMs: number;
 }): SupportThreadsState {
   const [threads, setThreads] = useState<Thread[] | null>(null);
@@ -131,6 +137,7 @@ export function useSupportThreads({
   const [errorKey, setErrorKey] = useState<StringKey | null>(null);
   const [serverLanguage, setServerLanguage] = useState<string | null>(null);
   const [languageLoaded, setLanguageLoaded] = useState(false);
+  const [store, setStore] = useState<StoreListing | null>(null);
 
   const mounted = useRef(true);
   /** Last server payload, before local read reconciliation. */
@@ -140,11 +147,11 @@ export function useSupportThreads({
   const requestSeq = useRef(0);
   const appliedSeq = useRef(0);
   const readEpoch = useRef(0);
-  const activeThreadIdRef = useRef<string | null>(activeThreadId);
+  const chatVisibleRef = useRef(chatVisible);
 
   useEffect(() => {
-    activeThreadIdRef.current = activeThreadId;
-  }, [activeThreadId]);
+    chatVisibleRef.current = chatVisible;
+  }, [chatVisible]);
 
   useEffect(() => {
     mounted.current = true;
@@ -251,6 +258,11 @@ export function useSupportThreads({
     [publish, sendRead],
   );
 
+  /** Marks every conversation read — the chat shows them all at once. */
+  const markAllRead = useCallback(() => {
+    for (const thread of rawThreads.current ?? []) markThreadRead(thread.id);
+  }, [markThreadRead]);
+
   const fetchThreads = useCallback(
     async (mode: 'initial' | 'user' | 'background') => {
       if (!enabled) return;
@@ -275,12 +287,12 @@ export function useSupportThreads({
         setErrorKey(null);
         setServerLanguage(data.language);
         setLanguageLoaded(true);
+        setStore(data.store ?? null);
         publish();
 
-        // Replies that arrived while the user is sitting in the thread are
+        // Replies that arrived while the user is looking at the chat are
         // read on arrival — otherwise the badge climbed while they read.
-        const active = activeThreadIdRef.current;
-        if (active !== null) markThreadRead(active);
+        if (chatVisibleRef.current) markAllRead();
         flushReads();
       } catch (e) {
         if (!mounted.current) return;
@@ -293,7 +305,7 @@ export function useSupportThreads({
         }
       }
     },
-    [config, enabled, revenuecatId, publish, markThreadRead, flushReads],
+    [config, enabled, revenuecatId, publish, markAllRead, flushReads],
   );
 
   /** Badge-only refresh — the cheap endpoint, used while idle. */
@@ -325,10 +337,10 @@ export function useSupportThreads({
     if (sheetOpen) void fetchThreads('background');
   }, [sheetOpen, fetchThreads]);
 
-  // Opening a thread marks it read immediately, before the next poll.
+  // Opening the chat marks everything read immediately, before the next poll.
   useEffect(() => {
-    if (activeThreadId !== null) markThreadRead(activeThreadId);
-  }, [activeThreadId, markThreadRead]);
+    if (chatVisible) markAllRead();
+  }, [chatVisible, markAllRead]);
 
   // Cadence follows what the user is looking at; the app returning to the
   // foreground always ticks.
@@ -337,8 +349,8 @@ export function useSupportThreads({
     const idle = !sheetOpen;
     const intervalMs = idle
       ? idlePollMs
-      : activeThreadId !== null
-        ? THREAD_POLL_MS
+      : chatVisible
+        ? CHAT_POLL_MS
         : SHEET_POLL_MS;
 
     const tick = () => {
@@ -366,7 +378,7 @@ export function useSupportThreads({
   }, [
     enabled,
     sheetOpen,
-    activeThreadId,
+    chatVisible,
     idlePollMs,
     fetchThreads,
     fetchCount,
@@ -386,6 +398,7 @@ export function useSupportThreads({
     errorKey,
     serverLanguage,
     languageLoaded,
+    store,
     refresh,
     reload,
   };

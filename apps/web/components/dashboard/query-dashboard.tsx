@@ -12,7 +12,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type {
-  PaidFilter,
+  PlanFilter,
   QueryListRow,
   SortKey,
   Stats,
@@ -22,49 +22,11 @@ import type {
 import { absoluteTime, cn, formatMinutes, relativeTime } from "@/lib/utils";
 import { isTranslated } from "@/lib/languages";
 import { Button } from "@/components/ui/button";
-import { LanguageChip, PaidTag, StatusIndicator } from "@/components/ui/chips";
+import { LanguageChip, PlanChip, StatusIndicator } from "@/components/ui/chips";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSelect } from "@/components/ui/filter-select";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { ThreadPanel } from "@/components/dashboard/thread-panel";
-import { RotateKeyDialog } from "@/components/rotate-key-dialog";
-
-function FilterSelect<T extends string>({
-  value,
-  onChange,
-  options,
-  label,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { value: T; label: string }[];
-  label: string;
-}) {
-  return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value as T)}
-      className={cn(
-        "h-7 shrink-0 rounded-control border border-border bg-surface pl-2 pr-6 text-xs text-secondary",
-        "cursor-pointer appearance-none bg-no-repeat",
-        "transition-colors duration-fast hover:border-border-strong hover:text-primary",
-        // 16px keeps iOS Safari from zooming the page on focus.
-        "coarse:h-[38px] coarse:pl-2.5 coarse:pr-7 coarse:text-input",
-      )}
-      style={{
-        backgroundImage:
-          "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238b8b93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-        backgroundPosition: "right 8px center",
-      }}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 /**
  * `contents` hands the label and value straight to the parent grid so all
@@ -85,11 +47,12 @@ function StatItem({ label, value }: { label: string; value: ReactNode }) {
 
 export function QueryDashboard({
   appId,
-  appName,
+  title,
   adminId,
 }: {
   appId: string | null;
-  appName: string;
+  /** Shown in the toolbar; app pages carry their own header instead. */
+  title: string | null;
   adminId: string;
 }) {
   const router = useRouter();
@@ -103,7 +66,7 @@ export function QueryDashboard({
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [paidFilter, setPaidFilter] = useState<PaidFilter>("all");
+  const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -125,10 +88,12 @@ export function QueryDashboard({
           return appId ? q.eq("app_id", appId) : q;
         })();
 
+    // Conversations we started join the inbox once the user writes back.
+    builder = builder.eq("in_inbox", true);
+
     if (typeFilter !== "all") builder = builder.eq("type", typeFilter);
     if (statusFilter !== "all") builder = builder.eq("status", statusFilter);
-    if (paidFilter !== "all")
-      builder = builder.eq("is_paid", paidFilter === "paid");
+    if (planFilter !== "all") builder = builder.eq("plan", planFilter);
 
     if (sort === "newest")
       builder = builder.order("created_at", { ascending: false });
@@ -147,7 +112,7 @@ export function QueryDashboard({
     debouncedSearch,
     typeFilter,
     statusFilter,
-    paidFilter,
+    planFilter,
     sort,
     supabase,
   ]);
@@ -228,17 +193,18 @@ export function QueryDashboard({
   const filtersActive =
     typeFilter !== "all" ||
     statusFilter !== "all" ||
-    paidFilter !== "all" ||
+    planFilter !== "all" ||
     debouncedSearch !== "";
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {/* Toolbar — title, then search, then filters as they stop fitting. */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 md:px-4">
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-heading sm:mr-2 sm:flex-none">
-          {appName}
-        </h1>
-        {appId && <RotateKeyDialog appId={appId} appName={appName} />}
+        {title !== null && (
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-heading sm:mr-2 sm:flex-none">
+            {title}
+          </h1>
+        )}
         <div className="relative w-full sm:ml-auto sm:w-56">
           <Search
             size={13}
@@ -273,6 +239,7 @@ export function QueryDashboard({
             onChange={setTypeFilter}
             options={[
               { value: "all", label: "All types" },
+              { value: "support", label: "Chat" },
               { value: "feedback", label: "Feedback" },
               { value: "feature_request", label: "Feature request" },
               { value: "bug_report", label: "Bug report" },
@@ -290,11 +257,12 @@ export function QueryDashboard({
           />
           <FilterSelect
             label="Filter by plan"
-            value={paidFilter}
-            onChange={setPaidFilter}
+            value={planFilter}
+            onChange={setPlanFilter}
             options={[
-              { value: "all", label: "Paid & free" },
-              { value: "paid", label: "Paid" },
+              { value: "all", label: "All plans" },
+              { value: "pro", label: "PRO" },
+              { value: "trial", label: "Trial" },
               { value: "free", label: "Free" },
             ]}
           />
@@ -391,7 +359,7 @@ export function QueryDashboard({
                     <span className="truncate text-xs text-secondary">
                       {row.user_name}
                     </span>
-                    {row.is_paid && <PaidTag />}
+                    <PlanChip plan={row.plan} />
                     {isTranslated(row.user_language) && row.user_language && (
                       <LanguageChip
                         language={row.user_language}
@@ -450,7 +418,7 @@ export function QueryDashboard({
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-tertiary">
                     <span className="min-w-0 truncate">{row.user_name}</span>
-                    {row.is_paid && <PaidTag />}
+                    <PlanChip plan={row.plan} />
                     {isTranslated(row.user_language) && row.user_language && (
                       <LanguageChip
                         language={row.user_language}

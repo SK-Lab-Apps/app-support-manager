@@ -7,6 +7,7 @@ export {
   type SupportTheme,
 } from './theme';
 export { SupportApiError } from './api';
+export { SDK_VERSION } from './version';
 export { isPushAvailable } from './push';
 export {
   DEFAULT_LANGUAGE,
@@ -30,6 +31,7 @@ export type {
   ThreadsResponse,
   ThemeName,
   ThemePreference,
+  UserPlan,
 } from './types';
 export {
   QUERY_TYPE_LABEL,

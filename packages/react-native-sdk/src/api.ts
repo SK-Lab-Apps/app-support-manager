@@ -1,10 +1,7 @@
 // Thin client for the Supabase Edge Functions. Every call authenticates with
 // the per-app x-api-key header; no Supabase JS client is needed on-device.
-import type {
-  PushPermissionStatus,
-  QueryType,
-  ThreadsResponse,
-} from './types';
+import type { PushPermissionStatus, ThreadsResponse, UserPlan } from './types';
+import { SDK_VERSION } from './version';
 
 export interface ApiConfig {
   supabaseUrl: string;
@@ -38,6 +35,8 @@ async function request<T>(
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': config.apiKey,
+        // Tells the backend this build speaks the single support chat.
+        'x-sdk-version': SDK_VERSION,
         ...init.headers,
       },
     });
@@ -126,50 +125,80 @@ export function setLanguage(
   });
 }
 
-export function submitQuery(
+/** What the backend is told about the current user. */
+export interface ReportedUser {
+  name: string;
+  plan: UserPlan;
+  appVersion: string;
+  /** Decides which store a review request opens. */
+  platform?: 'ios' | 'android';
+}
+
+function reportedUser(user: ReportedUser) {
+  return {
+    name: user.name,
+    plan: user.plan,
+    app_version: user.appVersion,
+    platform: user.platform,
+  };
+}
+
+/**
+ * Sends one chat message. The server appends it to the user's open
+ * conversation, or starts one if none is open (a first message, or the first
+ * after a resolve).
+ */
+export function sendMessage(
   config: ApiConfig,
   input: {
-    queryType: QueryType;
-    message: string;
-    userName: string;
-    isPaid: boolean;
     revenuecatId: string;
-    appVersion: string;
+    message: string;
     language: string;
+    user: ReportedUser;
   },
-): Promise<{ query_id: string }> {
-  return request(config, 'submit-query', {
+): Promise<{ query_id: string; message_id: string; started: boolean }> {
+  return request(config, 'send-message', {
     method: 'POST',
     body: JSON.stringify({
       app_name: config.appName,
-      query_type: input.queryType,
-      message: input.message,
-      user_name: input.userName,
-      is_paid: input.isPaid,
       revenuecat_id: input.revenuecatId,
-      app_version: input.appVersion,
+      message: input.message,
       // Sent on every write so a lost set-language call self-heals.
       language: input.language,
+      user: reportedUser(input.user),
     }),
   });
 }
 
-export function postMessage(
+/**
+ * Records the user in the app's directory, so the team can find and message
+ * them before they ever open support. Called on every load.
+ */
+export function registerUser(
   config: ApiConfig,
-  input: {
-    queryId: string;
-    revenuecatId: string;
-    message: string;
-    language: string;
-  },
-): Promise<{ message_id: string }> {
-  return request(config, 'post-message', {
+  input: { revenuecatId: string; user: ReportedUser },
+): Promise<{ ok: boolean }> {
+  return request(config, 'register-user', {
     method: 'POST',
     body: JSON.stringify({
-      query_id: input.queryId,
+      app_name: config.appName,
       revenuecat_id: input.revenuecatId,
-      message: input.message,
-      language: input.language,
+      user: reportedUser(input.user),
+    }),
+  });
+}
+
+/** Records a tap on a review request's store button, for the dashboard. */
+export function reviewOpened(
+  config: ApiConfig,
+  input: { revenuecatId: string; messageId: string },
+): Promise<{ ok: boolean }> {
+  return request(config, 'review-opened', {
+    method: 'POST',
+    body: JSON.stringify({
+      app_name: config.appName,
+      revenuecat_id: input.revenuecatId,
+      message_id: input.messageId,
     }),
   });
 }

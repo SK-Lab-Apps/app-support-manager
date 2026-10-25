@@ -1,7 +1,13 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { Language } from './i18n/languages';
 
-export type QueryType = 'feedback' | 'feature_request' | 'bug_report';
+/**
+ * 'support' is the single chat (0.4+). The other three are the typed requests
+ * older builds file; their conversations still show in the chat.
+ */
+export type QueryType = 'feedback' | 'feature_request' | 'bug_report' | 'support';
+/** Shown to the support team, which can filter and message users by it. */
+export type UserPlan = 'free' | 'trial' | 'pro';
 export type QueryStatus = 'open' | 'resolved';
 export type MessageSender = 'user' | 'admin';
 export type ThemeName = 'dark' | 'light';
@@ -26,8 +32,17 @@ export type LauncherVariant = 'solid' | 'soft' | 'minimal';
 export interface SupportUser {
   /** Display name shown to the support team. */
   name: string;
-  /** Whether the user is on a paid plan. */
-  isPaid: boolean;
+  /**
+   * The user's plan: "free", "trial" (in a free trial) or "pro" (paying).
+   * With RevenueCat: "trial" when the active entitlement's periodType is
+   * TRIAL, "pro" when it is active otherwise, else "free".
+   */
+  plan?: UserPlan;
+  /**
+   * @deprecated Pass `plan`, which can also say "trial". Still accepted:
+   * true reads as "pro", false as "free". One of the two is required.
+   */
+  isPaid?: boolean;
   /** RevenueCat app user id — identifies the user's threads. */
   revenuecatId: string;
   /** Host app version, e.g. "2.4.1". */
@@ -111,6 +126,17 @@ export interface ThreadMessage {
    * the UI says so rather than letting it flicker.
    */
   translation_pending: boolean;
+  /**
+   * 'review_request': a support reply that carries a store review button.
+   * Absent from servers older than 0.4, where every message is text.
+   */
+  kind?: 'text' | 'review_request';
+}
+
+/** Where a review request's button points; set per app in the dashboard. */
+export interface StoreListing {
+  app_store_id: string | null;
+  play_store_package: string | null;
 }
 
 /**
@@ -139,6 +165,8 @@ export interface ThreadsResponse {
   total_unread: number;
   /** Null when this user has never picked one — the SDK then asks. */
   language: string | null;
+  /** The app's store listings, for review requests. */
+  store?: StoreListing;
 }
 
 /**
@@ -150,7 +178,8 @@ export const QUERY_TYPE_LABEL: Record<QueryType, string> = {
   feedback: 'Feedback',
   feature_request: 'Feature request',
   bug_report: 'Bug report',
+  support: 'Support',
 };
 
-export const USER_MESSAGE_MIN = 10;
-export const USER_MESSAGE_MAX = 300;
+export const USER_MESSAGE_MIN = 1;
+export const USER_MESSAGE_MAX = 1000;

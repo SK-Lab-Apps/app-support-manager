@@ -2,7 +2,7 @@
 project_id = "support-platform"
 
 # End-user-facing functions authenticate with x-api-key (per app), not a
-# Supabase JWT — JWT verification must stay off for all four.
+# Supabase JWT — JWT verification must stay off for all of them.
 [functions.submit-query]
 verify_jwt = false
 
@@ -24,8 +24,22 @@ verify_jwt = false
 [functions.set-language]
 verify_jwt = false
 
-# The only staff-facing function: called by the dashboard with an admin JWT.
+# SDK 0.4+: the support chat's send, and the per-launch user registration.
+[functions.send-message]
+verify_jwt = false
+
+[functions.register-user]
+verify_jwt = false
+
+# SDK 0.4+: records a tap on a review request's store button.
+[functions.review-opened]
+verify_jwt = false
+
+# Staff-facing: called by the dashboard with an admin JWT.
 [functions.send-push]
+verify_jwt = true
+
+[functions.send-outreach]
 verify_jwt = true
 
 # Two callers, two credentials — the dashboard with an admin JWT and the

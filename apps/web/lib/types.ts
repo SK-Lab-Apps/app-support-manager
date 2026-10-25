@@ -8,7 +8,9 @@ export interface PushSubscriptionRow {
   asked_at: string | null;
 }
 
-export type QueryType = 'feedback' | 'feature_request' | 'bug_report';
+/** 'support' is the single chat (SDK 0.4+); the other three come from older SDKs. */
+export type QueryType = 'feedback' | 'feature_request' | 'bug_report' | 'support';
+export type UserPlan = 'free' | 'trial' | 'pro';
 export type QueryStatus = 'open' | 'resolved';
 export type MessageSender = 'user' | 'admin';
 
@@ -49,6 +51,54 @@ export interface QueryListRow {
   unread_for_admin: boolean;
   /** The language this user writes in; null if they never picked one. */
   user_language: string | null;
+  /** The user's current plan (falls back to the query's is_paid). */
+  plan: UserPlan;
+  /** Who wrote first: the user, or us via a send from the Users tab. */
+  initiated_by: MessageSender;
+  broadcast_id: string | null;
+  first_user_message_at: string | null;
+  /** True once the user has written — conversations we start wait until then. */
+  in_inbox: boolean;
+}
+
+/** Row shape of the `app_user_list` view. */
+export interface AppUserRow {
+  app_id: string;
+  revenuecat_id: string;
+  /** Null for users known only from a push registration. */
+  name: string | null;
+  plan: UserPlan;
+  app_version: string | null;
+  /** Null until the user runs SDK 0.4+. */
+  sdk_version: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  language: string | null;
+  push_status: PushPermissionStatus | null;
+  push_reachable: boolean;
+  conversation_count: number;
+}
+
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Row shape of the `broadcast_summary` view. */
+export interface BroadcastSummary {
+  id: string;
+  app_id: string;
+  body: string;
+  send_push: boolean;
+  recipient_count: number;
+  created_at: string;
+  sent_by_name: string;
+  template_name: string | null;
+  read_count: number;
+  replied_count: number;
 }
 
 export interface MessageRow {
@@ -64,6 +114,19 @@ export interface MessageRow {
   translation_status: TranslationStatus;
   created_at: string;
   admin_name: string | null;
+  /** 'review_request': a reply that carries a store review button in the app. */
+  kind: MessageKind;
+  /** When the user tapped through to the store; review requests only. */
+  review_opened_at: string | null;
+}
+
+export type MessageKind = 'text' | 'review_request';
+export type StorePlatform = 'ios' | 'android';
+
+/** Where review requests send users; set per app. */
+export interface StoreListing {
+  app_store_id: string | null;
+  play_store_package: string | null;
 }
 
 export interface Stats {
@@ -76,9 +139,16 @@ export const QUERY_TYPE_LABEL: Record<QueryType, string> = {
   feedback: 'Feedback',
   feature_request: 'Feature request',
   bug_report: 'Bug report',
+  support: 'Chat',
+};
+
+export const PLAN_LABEL: Record<UserPlan, string> = {
+  free: 'Free',
+  trial: 'Trial',
+  pro: 'PRO',
 };
 
 export type SortKey = 'newest' | 'oldest' | 'active';
 export type TypeFilter = QueryType | 'all';
 export type StatusFilter = QueryStatus | 'all';
-export type PaidFilter = 'all' | 'paid' | 'free';
+export type PlanFilter = UserPlan | 'all';

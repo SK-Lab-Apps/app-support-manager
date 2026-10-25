@@ -11,76 +11,7 @@ import {
 } from 'react-native';
 import type { Translator } from '../i18n';
 import type { SupportTheme } from '../theme';
-import type { QueryStatus, QueryType } from '../types';
-import { AlertCircleIcon, ChatIcon, PlusCircleIcon } from './icons';
-
-export function typeIcon(type: QueryType, color: string, size = 15): ReactNode {
-  if (type === 'bug_report') return <AlertCircleIcon color={color} size={size} />;
-  if (type === 'feature_request') return <PlusCircleIcon color={color} size={size} />;
-  return <ChatIcon color={color} size={size} />;
-}
-
-export function typeColor(type: QueryType, theme: SupportTheme): string {
-  if (type === 'bug_report') return theme.colors.statusDanger;
-  if (type === 'feature_request') return theme.colors.statusProgress;
-  return theme.colors.statusOpen;
-}
-
-export function typeBackground(type: QueryType, theme: SupportTheme): string {
-  if (type === 'bug_report') return theme.colors.statusDangerBg;
-  if (type === 'feature_request') return theme.colors.statusProgressBg;
-  return theme.colors.statusOpenBg;
-}
-
-/** Tinted round chip holding a type icon — the anchor of every list row. */
-export function TypeGlyph({
-  type,
-  theme,
-  size = 36,
-}: {
-  type: QueryType;
-  theme: SupportTheme;
-  size?: number;
-}) {
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: typeBackground(type, theme),
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {typeIcon(type, typeColor(type, theme), size * 0.44)}
-    </View>
-  );
-}
-
-/** Status dot + label — same visual language as the dashboard. */
-export function StatusIndicator({
-  status,
-  theme,
-  strings,
-}: {
-  status: QueryStatus;
-  theme: SupportTheme;
-  strings: Translator;
-}) {
-  const color =
-    status === 'open' ? theme.colors.statusOpen : theme.colors.statusResolved;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View
-        style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }}
-      />
-      <Text style={{ fontSize: 12, color }}>
-        {strings.t(status === 'open' ? 'status.open' : 'status.resolved')}
-      </Text>
-    </View>
-  );
-}
+import { ChatIcon } from './icons';
 
 /** Pressable row with the standard press wash. */
 export function PressableRow({
@@ -239,68 +170,6 @@ export function SecondaryButton({
   );
 }
 
-/** The count pill on a thread row. */
-export function UnreadPill({
-  count,
-  theme,
-}: {
-  count: number;
-  theme: SupportTheme;
-}) {
-  return (
-    <View
-      style={{
-        minWidth: 20,
-        height: 20,
-        paddingHorizontal: 6,
-        borderRadius: theme.radii.pill,
-        backgroundColor: theme.colors.accent,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 11,
-          lineHeight: 14,
-          fontWeight: '700',
-          color: theme.colors.accentForeground,
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {count > 99 ? '99+' : count}
-      </Text>
-    </View>
-  );
-}
-
-export function SectionLabel({
-  children,
-  theme,
-  style,
-}: {
-  children: ReactNode;
-  theme: SupportTheme;
-  style?: StyleProp<TextStyle>;
-}) {
-  return (
-    <Text
-      style={[
-        {
-          fontSize: 11,
-          fontWeight: '600',
-          textTransform: 'uppercase',
-          letterSpacing: 0.6,
-          color: theme.colors.textTertiary,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </Text>
-  );
-}
-
 /** Small muted icon + one line — no illustrations. */
 export function EmptyState({
   message,
@@ -456,34 +325,3 @@ export const textStyles = {
     fontVariant: ['tabular-nums'],
   }),
 };
-
-export function TypeChipView({
-  type,
-  theme,
-  strings,
-}: {
-  type: QueryType;
-  theme: SupportTheme;
-  strings: Translator;
-}) {
-  const color = typeColor(type, theme);
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: theme.radii.pill,
-        backgroundColor: typeBackground(type, theme),
-        alignSelf: 'flex-start',
-      }}
-    >
-      {typeIcon(type, color, 11)}
-      <Text style={{ fontSize: 11.5, fontWeight: '600', color }}>
-        {strings.t(`type.${type}`)}
-      </Text>
-    </View>
-  );
-}

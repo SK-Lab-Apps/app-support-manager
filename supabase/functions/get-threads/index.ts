@@ -18,6 +18,7 @@
 import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { authenticateApp, serviceClient } from '../_shared/app-auth.ts';
+import { sdkVersion, typeForClient } from '../_shared/sdk.ts';
 
 const ParamsSchema = z.object({
   revenuecat_id: z.string().trim().min(1).max(200),
@@ -26,6 +27,7 @@ const ParamsSchema = z.object({
 interface MessageRow {
   id: string;
   sender: 'user' | 'admin';
+  kind: 'text' | 'review_request';
   body: string;
   body_translated: string | null;
   translation_status: 'skipped' | 'pending' | 'done' | 'failed';
@@ -62,7 +64,7 @@ Deno.serve(async (req) => {
     .from('queries')
     .select(
       `id, type, status, created_at, resolved_at, app_version,
-       messages(id, sender, body, body_translated, translation_status, created_at),
+       messages(id, sender, kind, body, body_translated, translation_status, created_at),
        read_receipts(reader, last_read_at)`,
     )
     .eq('app_id', app.id)
@@ -106,7 +108,8 @@ Deno.serve(async (req) => {
     const lastMessage = q.messages[q.messages.length - 1] ?? null;
     return {
       id: q.id,
-      type: q.type,
+      // 'support' reads as feedback to builds that can't label it.
+      type: typeForClient(q.type, req),
       status: q.status,
       created_at: q.created_at,
       resolved_at: q.resolved_at,
@@ -128,13 +131,32 @@ Deno.serve(async (req) => {
         // flashing English text that changes under the reader a second later.
         translation_pending:
           m.sender === 'admin' && m.translation_status === 'pending',
+        // A review request carries a store button in 0.4+; older builds
+        // ignore the field and show the text.
+        kind: m.kind,
       })),
     };
   });
 
+  // Where a review request's button points. Only builds that render the
+  // button are sent it.
+  let store: { app_store_id: string | null; play_store_package: string | null } | undefined;
+  if (sdkVersion(req) !== null) {
+    const { data: listing } = await supabase
+      .from('apps')
+      .select('app_store_id, play_store_package')
+      .eq('id', app.id)
+      .maybeSingle();
+    store = {
+      app_store_id: listing?.app_store_id ?? null,
+      play_store_package: listing?.play_store_package ?? null,
+    };
+  }
+
   return json({
     threads,
     total_unread: totalUnread,
+    store,
     // Null means "never picked one" — the SDK shows its language prompt.
     language: locale?.language ?? null,
   });

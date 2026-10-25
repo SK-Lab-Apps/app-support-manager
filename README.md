@@ -9,7 +9,7 @@ Customer support for mobile apps: an admin dashboard, a React Native SDK, and a 
 └── supabase/                  # Migrations, RLS, Edge Functions, seed
 ```
 
-End users file feedback / feature requests / bug reports from inside a mobile app (via the SDK) and chat with admins in two-way threads. Admins triage everything per app in the dashboard. End users never touch the database directly — they go through Edge Functions authenticated by a per-app API key; admins authenticate with Supabase Auth and RLS.
+End users chat with support from inside a mobile app (via the SDK), and admins answer — or write first, to one user or many — from the dashboard, where everything is triaged per app. End users never touch the database directly — they go through Edge Functions authenticated by a per-app API key; admins authenticate with Supabase Auth and RLS.
 
 ## Prerequisites
 
@@ -36,6 +36,10 @@ supabase functions deploy register-push
 supabase functions deploy send-push
 supabase functions deploy set-language
 supabase functions deploy translate-message
+supabase functions deploy send-message
+supabase functions deploy register-user
+supabase functions deploy send-outreach
+supabase functions deploy review-opened
 ```
 
 Translation needs an OpenAI API key ([platform.openai.com](https://platform.openai.com)):
@@ -123,6 +127,29 @@ On the app's page, the key icon beside its name opens **Rotate API key**. Every 
 
 The new key is shown once, like at registration. Only one old key is kept: rotating again during a grace period cuts the older one off immediately (the dialog says so first), and **Revoke it now** ends a grace period early.
 
+### Messaging users first
+
+Each app has **Inbox**, **Users** and **Sent** tabs.
+
+- **Users** lists the app's users — name, plan (PRO, Trial, Free), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them.
+- The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps.
+- Each user gets the message as a new conversation in their support chat, translated into their language: the template is translated once per language with the placeholders intact, then filled in. A language that fails to translate is sent in English and picked up by the translation sweep.
+- These conversations stay out of the inbox, the open counts and the response-time stats until the user replies; then they appear like any other.
+- Push is a per-send choice, off by default — without it users see the badge on the support button. Apple's guidelines don't allow promotional pushes unless users opted in to them, so keep push for service messages.
+- **Sent** lists each send with its audience, how many read it, and how many replied.
+
+The send runs in `send-outreach` (admin JWT), and the conversation, first message and broadcast record for every recipient are written in one transaction (`create_outreach`), so a failure part-way sends nothing.
+
+### Review requests
+
+A reply can carry a **Rate on the App Store / Google Play** button: in a conversation, turn on **Review request** in the composer (it pre-fills a suggested message you can edit) and send. Set up once per app with the star in the app's header — the App Store ID (the number in `apps.apple.com/app/id…`) and the Google Play package.
+
+- The text is an ordinary reply — translated, delivered and pushed like any other. SDK 0.4+ adds the button for the user's platform, opening the store app's write-a-review page (or its web page if the store app won't open). SDKs before 0.4 show the text alone, and the composer says so for those users.
+- The button is offered only when the user's store is set up — by the platform their SDK reports, or either store for users on older SDKs.
+- One request per stretch of conversation: after asking, the button waits until the user writes again.
+- When the user taps through, the dashboard shows **Opened the store** under the request. That's a tap, not a review — the stores don't report who reviewed.
+- It is a link to the review page, not an in-app rating prompt, and nothing may be offered in exchange: Apple and Google both forbid incentivized reviews, and the composer repeats this.
+
 ## Using the SDK
 
 ```tsx
@@ -134,7 +161,7 @@ import { SupportButton } from '@appsupportkit/support-sdk';
   supabaseUrl="https://<project-ref>.supabase.co"
   user={{
     name: 'Maya Okafor',
-    isPaid: true,
+    plan: 'pro',                             // "free" | "trial" | "pro"
     revenuecatId: 'rc_anon_8f31bd2c',        // RevenueCat app user id
     appVersion: '2.4.1',
   }}
@@ -145,7 +172,23 @@ import { SupportButton } from '@appsupportkit/support-sdk';
 
 Peer dependencies: `react`, `react-native`, `react-native-safe-area-context`. The bottom sheet is built on the core `Modal`/`Animated` APIs — no gesture-handler/reanimated native dependencies to install.
 
-The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens a sheet with: new-query actions, the user's open and resolved conversations, a composer with a live 10–300 character counter, and read-only resolved threads showing when they were resolved.
+The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens the support chat: one continuous conversation with a composer that is always open, up to 1,000 characters a message.
+
+### One chat, many conversations
+
+The user sees a single chat. The dashboard still works in conversations it can resolve, so the two meet like this:
+
+- A message goes to the user's open conversation (`send-message` picks the most recently active one), or starts a new `support` conversation when none is open — a first message, or the first after a resolve.
+- A resolve shows in the chat as a divider; the composer stays open, and the next message starts the next conversation.
+- Older conversations — including typed feedback, feature requests and bug reports from SDKs before 0.4 — appear in the same scroll, in time order.
+
+`plan` is what the team filters and messages users by. With RevenueCat: `"trial"` when the active entitlement's `periodType` is `TRIAL`, `"pro"` when it is active otherwise, `"free"` without one. `isPaid` is still accepted (true reads as `"pro"`) but can't say `"trial"`.
+
+The SDK reports the user (name, plan, app version) on every load through `register-user`, so the dashboard's Users tab lists them before they ever open support, and it refreshes their push token then if notifications are already allowed — it never prompts outside the sheet.
+
+### Compatibility with SDKs before 0.4
+
+Builds already in the App Store keep working unchanged: `submit-query`, `post-message` and the three request types are untouched for them. SDK 0.4 identifies itself with an `x-sdk-version` header; for callers without it, `get-threads` reports `support` conversations (from 0.4 chats, and conversations started from the dashboard) as `feedback`, the type older builds label as general. Users on older builds appear in the Users tab once they write to support, with PRO or Free from `isPaid`.
 
 End users never see which admin they are talking to — replies are attributed to the support team, in notifications and in the thread alike, and admin display names are not included in the SDK's API responses at all. The dashboard still shows who wrote and who resolved what.
 
@@ -187,7 +230,7 @@ That carries three rules worth knowing when reading `useSupportThreads.ts`:
 - `get-unread-count` returns a bare number that can't be reconciled against local reads, so its answer is dropped if a read happened while it was in flight, and it is skipped entirely while any receipt is unconfirmed — the full payload is polled instead, because that one *can* be reconciled.
 - Failed `mark-read` calls are retried with backoff rather than swallowed; until one lands, the watermark holds the UI correct.
 
-Replies that arrive while the user is sitting in a thread are marked read on arrival, so the badge never climbs while they are reading.
+Replies that arrive while the chat is on screen are marked read on arrival, so the badge never climbs while the user is reading. Nothing is marked read while the first-run language prompt covers the chat.
 
 ### Refresh cadence
 
@@ -195,8 +238,8 @@ Polling adapts to what the user is looking at, so latency is low where it's felt
 
 | Context | Interval | Endpoint |
 | --- | --- | --- |
-| Inside a thread | 5s | `get-threads` |
-| Sheet open (list) | 15s | `get-threads` |
+| Chat on screen | 5s | `get-threads` |
+| Sheet open (language picker) | 15s | `get-threads` |
 | Sheet closed (idle) | `pollIntervalMs`, default 60s | `get-unread-count` (~18 bytes) |
 | Sheet closed, receipt unconfirmed | as above | `get-threads` (until the receipt lands) |
 
@@ -252,7 +295,8 @@ Edge Functions run on Deno and are excluded from the Node toolchain; check them 
 - **anon role**: zero direct table access — RLS is enabled everywhere with no anon policies, and default grants are revoked. End users only reach data through Edge Functions.
 - **Edge Functions**: validate the `x-api-key` header by SHA-256 hash against `apps.api_key_hash` (or `previous_api_key_hash` while a rotation's grace period lasts), verify the claimed `app_name` matches that key, and scope every read/write to that app + `revenuecat_id`.
 - **Admins**: any row in `admins` matching `auth.uid()` gets select/insert/update via RLS. No roles, no signup. Messages are the exception: an admin can only insert a reply as themself (`sender = 'admin'`, `admin_id = auth.uid()`, no translation of their own), and can't update messages at all — translations are written by the Edge Functions.
-- **No deletes**: no DELETE policies exist for anyone — queries and messages are an immutable audit trail.
-- **Char limits**: user messages 10–300, admin messages ≤1000 — enforced in the clients, in the Edge Functions, and by CHECK constraints.
+- **Review receipts**: a message's `review_opened_at` is written only by `review-opened` (service role), scoped to the app and `revenuecat_id` that own the request; admins can send review requests but can't set the receipt.
+- **No deletes**: no DELETE policies exist for anyone — queries and messages are an immutable audit trail. The one exception is message templates, which admins can delete.
+- **Char limits**: messages 1–1000 characters — enforced in the clients, in the Edge Functions, and by a CHECK constraint. SDKs before 0.4 still hold users to 10–300 on the device.
 - **Push status**: `push_subscriptions` is written only by the `register-push` function (service role) and readable only by admins. `send-push` is the single staff-facing function — it requires an admin JWT, not an API key, and verifies membership in `admins` before sending.
-- **Rate limits**: the write endpoints enforce Postgres-backed fixed windows — per user, 5 new queries and 30 replies per hour; per app, 500 writes per hour (blast-radius cap if a key leaks). Blocked requests get a 429 with `Retry-After`; the SDK shows "Too many requests — try again later" inline. Limits live in `supabase/functions/_shared/rate-limit.ts`.
+- **Rate limits**: the write endpoints enforce Postgres-backed fixed windows — per user, 5 new conversations and 30 messages per hour; per app, 500 writes per hour (blast-radius cap if a key leaks). `register-user` runs on every launch, so it has its own per-user cap (60/hour) and doesn't count against the app's. Blocked requests get a 429 with `Retry-After`; the SDK shows "Too many requests — try again later" inline. Limits live in `supabase/functions/_shared/rate-limit.ts`.

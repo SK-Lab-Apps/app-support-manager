@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCw, X } from "lucide-react";
+import { RotateCw, Star, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -10,19 +10,22 @@ import {
   type FormEvent,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getSupabaseEnv } from "@/lib/supabase/env";
+import { callFunction } from "@/lib/functions";
 import { isTranslated, languageName } from "@/lib/languages";
 import type {
+  MessageKind,
   MessageRow,
   PushSubscriptionRow,
   QueryListRow,
+  StoreListing,
+  StorePlatform,
   TranslationStatus,
 } from "@/lib/types";
 import { absoluteTime, cn, formatDate, relativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   LanguageChip,
-  PaidTag,
+  PlanChip,
   PushStatusChip,
   StatusIndicator,
 } from "@/components/ui/chips";
@@ -41,7 +44,33 @@ interface RawMessage {
   body_language: string | null;
   translation_status: TranslationStatus;
   created_at: string;
+  kind: MessageKind;
+  review_opened_at: string | null;
   admins: { display_name: string } | null;
+}
+
+/** What the user's app can do with a review request. */
+interface ReviewTarget {
+  store: StoreListing;
+  /** Null for SDKs before 0.4, which don't report it. */
+  platform: StorePlatform | null;
+  /** False when the user's SDK predates review buttons (shows text only). */
+  rendersButton: boolean;
+}
+
+function storeLabel(platform: StorePlatform | null): string {
+  if (platform === "ios") return "Rate on the App Store";
+  if (platform === "android") return "Rate on Google Play";
+  return "Rate in the store";
+}
+
+/** Whether this user's store is set up — any store when we can't tell. */
+function storeReady(target: ReviewTarget | null): boolean {
+  if (!target) return false;
+  const { store, platform } = target;
+  if (platform === "ios") return store.app_store_id !== null;
+  if (platform === "android") return store.play_store_package !== null;
+  return store.app_store_id !== null || store.play_store_package !== null;
 }
 
 /**
@@ -75,6 +104,8 @@ export function ThreadPanel({
   // Message ids the admin has expanded to see the user's actual words.
   const [showOriginal, setShowOriginal] = useState<Set<string>>(new Set());
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const resolved = row.status === "resolved";
@@ -93,7 +124,7 @@ export function ThreadPanel({
     const { data, error } = await supabase
       .from("messages")
       .select(
-        "id, query_id, sender, admin_id, body, body_translated, body_language, translation_status, created_at, admins(display_name)",
+        "id, query_id, sender, admin_id, body, body_translated, body_language, translation_status, created_at, kind, review_opened_at, admins(display_name)",
       )
       .eq("query_id", row.id)
       .order("created_at", { ascending: true });
@@ -114,6 +145,8 @@ export function ThreadPanel({
         translation_status: m.translation_status,
         created_at: m.created_at,
         admin_name: m.admins?.display_name ?? null,
+        kind: m.kind,
+        review_opened_at: m.review_opened_at,
       })),
     );
   }, [supabase, row.id]);
@@ -138,13 +171,44 @@ export function ThreadPanel({
     setPushSubscription((data as PushSubscriptionRow | null) ?? null);
   }, [supabase, row.app_id, row.revenuecat_id]);
 
+  const fetchReviewTarget = useCallback(async () => {
+    const [{ data: app }, { data: user }] = await Promise.all([
+      supabase
+        .from("apps")
+        .select("app_store_id, play_store_package")
+        .eq("id", row.app_id)
+        .maybeSingle(),
+      supabase
+        .from("app_users")
+        .select("platform, sdk_version")
+        .eq("app_id", row.app_id)
+        .eq("revenuecat_id", row.revenuecat_id)
+        .maybeSingle(),
+    ]);
+    setReviewTarget({
+      store: {
+        app_store_id: app?.app_store_id ?? null,
+        play_store_package: app?.play_store_package ?? null,
+      },
+      platform: (user?.platform as StorePlatform | null) ?? null,
+      rendersButton: Boolean(user?.sdk_version),
+    });
+  }, [supabase, row.app_id, row.revenuecat_id]);
+
   // Opening a thread marks it read on the admin side.
   useEffect(() => {
     void fetchMessages();
     void fetchUserReceipt();
     void fetchPushSubscription();
+    void fetchReviewTarget();
     void markRead();
-  }, [fetchMessages, fetchUserReceipt, fetchPushSubscription, markRead]);
+  }, [
+    fetchMessages,
+    fetchUserReceipt,
+    fetchPushSubscription,
+    fetchReviewTarget,
+    markRead,
+  ]);
 
   // Live thread: refetch (and re-mark read) when a message lands here.
   useEffect(() => {
@@ -172,9 +236,10 @@ export function ThreadPanel({
           filter: `query_id=eq.${row.id}`,
         },
         () => {
-          // A translation landing on a message already on screen. Refetch
-          // only — this is not new activity, so it must not clear the
-          // unread marker or move the read receipt.
+          // A translation landing on a message already on screen, or the
+          // user tapping a review request's button. Refetch only — this is
+          // not new activity, so it must not clear the unread marker or
+          // move the read receipt.
           void fetchMessages();
         },
       )
@@ -220,6 +285,33 @@ export function ThreadPanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
+  // Ask once per stretch of conversation: after a review request, wait for
+  // the user to write again before asking a second time.
+  const askedSinceUserWrote = useMemo(() => {
+    for (let i = (messages?.length ?? 0) - 1; i >= 0; i--) {
+      const m = messages?.[i];
+      if (m?.sender === "user") return false;
+      if (m?.kind === "review_request") return true;
+    }
+    return false;
+  }, [messages]);
+
+  const reviewBlocked = !storeReady(reviewTarget)
+    ? "Add this app's store listing first (the star in the app's header)"
+    : askedSinceUserWrote
+      ? "Already asked — wait until they write again"
+      : null;
+
+  function toggleReviewMode() {
+    const next = !reviewMode;
+    setReviewMode(next);
+    if (next && draft.trim() === "") {
+      setDraft(
+        `If we've helped, would you rate ${row.app_name}? It only takes a moment and means a lot to us.`,
+      );
+    }
+  }
+
   async function handleSend(e: FormEvent) {
     e.preventDefault();
     const body = draft.trim();
@@ -236,6 +328,7 @@ export function ThreadPanel({
         body,
         body_language: "en",
         translation_status: translating ? "pending" : "skipped",
+        kind: reviewMode ? "review_request" : "text",
       })
       .select("id")
       .single();
@@ -246,35 +339,13 @@ export function ThreadPanel({
       return;
     }
     setDraft("");
+    setReviewMode(false);
     await fetchMessages();
     onChanged();
     // Translate first, then notify: the push copy is localized either way,
     // but a user who taps it should land on a thread that already reads in
     // their language. Neither call blocks the reply, which is committed.
     void translateAndNotify(inserted.id);
-  }
-
-  /** Calls one of the post-reply edge functions with the admin's own JWT. */
-  async function callFunction(name: string, body: unknown): Promise<boolean> {
-    try {
-      const { url, anonKey } = getSupabaseEnv();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return false;
-      const response = await fetch(`${url}/functions/v1/${name}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: anonKey,
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(body),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
   }
 
   /**
@@ -288,16 +359,16 @@ export function ThreadPanel({
    */
   async function translateAndNotify(messageId: string) {
     if (translating) {
-      await callFunction("translate-message", { message_id: messageId });
+      await callFunction(supabase, "translate-message", { message_id: messageId });
       await fetchMessages();
     }
-    await callFunction("send-push", { query_id: row.id });
+    await callFunction(supabase, "send-push", { query_id: row.id });
   }
 
   /** Manual retry for a translation that failed or is stuck. */
   async function retryTranslation(messageId: string) {
     setRetrying(messageId);
-    await callFunction("translate-message", { message_id: messageId });
+    await callFunction(supabase, "translate-message", { message_id: messageId });
     await fetchMessages();
     setRetrying(null);
   }
@@ -340,7 +411,7 @@ export function ThreadPanel({
           <span className="truncate text-sm font-medium text-primary">
             {row.user_name}
           </span>
-          {row.is_paid && <PaidTag className="shrink-0" />}
+          <PlanChip plan={row.plan} className="shrink-0" />
           <span className="tnum hidden truncate text-2xs text-tertiary xs:block">
             {row.revenuecat_id}
           </span>
@@ -379,6 +450,11 @@ export function ThreadPanel({
             <LanguageChip language={row.user_language} />
           )}
           <PushStatusChip subscription={pushSubscription} />
+          {row.initiated_by === "admin" && (
+            <span title="This conversation began with a message sent from the Users tab">
+              Started by us
+            </span>
+          )}
         </div>
       </div>
 
@@ -437,6 +513,16 @@ export function ThreadPanel({
                     )}
                   >
                     <p className="whitespace-pre-wrap break-words">{english}</p>
+                    {m.kind === "review_request" && (
+                      // How the button looks in the app — not clickable here.
+                      <span
+                        aria-hidden
+                        className="mt-2 flex items-center justify-center gap-1.5 rounded-control bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg"
+                      >
+                        <Star size={11} strokeWidth={2} />
+                        {storeLabel(reviewTarget?.platform ?? null)}
+                      </span>
+                    )}
                     {expanded && (
                       <p className="mt-2 whitespace-pre-wrap break-words border-t border-border pt-2 text-secondary">
                         {m.body}
@@ -475,6 +561,18 @@ export function ThreadPanel({
                           : `Translated from ${languageName(m.body_language)}`}
                       </button>
                     )}
+
+                    {m.kind === "review_request" &&
+                      (m.review_opened_at ? (
+                        <span
+                          className="text-status-resolved"
+                          title={`${absoluteTime(m.review_opened_at)} — whether they left a review, the store doesn't say`}
+                        >
+                          Opened the store · {relativeTime(m.review_opened_at)}
+                        </span>
+                      ) : (
+                        <span>Review request</span>
+                      ))}
 
                     {pending && <span>Translating…</span>}
 
@@ -522,6 +620,17 @@ export function ThreadPanel({
           </p>
         ) : (
           <form onSubmit={handleSend} className="flex flex-col gap-2">
+            {reviewMode && (
+              <p className="text-2xs leading-relaxed text-secondary">
+                Adds a &ldquo;{storeLabel(reviewTarget?.platform ?? null)}&rdquo;
+                button under your message.{" "}
+                {reviewTarget && !reviewTarget.rendersButton
+                  ? "This user's app version shows the text without the button. "
+                  : ""}
+                Don&apos;t offer anything in exchange — Apple and Google
+                don&apos;t allow it.
+              </p>
+            )}
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -557,6 +666,18 @@ export function ThreadPanel({
                 {draft.length}/{ADMIN_MAX}
               </span>
               <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={reviewMode ? "secondary" : "ghost"}
+                  onClick={toggleReviewMode}
+                  disabled={!reviewMode && reviewBlocked !== null}
+                  title={reviewBlocked ?? "Add a store review button to this reply"}
+                  aria-pressed={reviewMode}
+                >
+                  <Star size={12} strokeWidth={1.5} />
+                  Review request
+                </Button>
                 {sendError && (
                   <span className="text-xs text-status-danger">
                     Couldn&apos;t send — try again
@@ -568,7 +689,11 @@ export function ThreadPanel({
                   variant="primary"
                   disabled={sending || draft.trim().length === 0}
                 >
-                  {sending ? "Sending…" : "Send"}
+                  {sending
+                    ? "Sending…"
+                    : reviewMode
+                      ? "Send request"
+                      : "Send"}
                 </Button>
               </div>
             </div>
