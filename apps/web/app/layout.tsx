@@ -1,17 +1,17 @@
-import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
-import '@appsupportkit/design-tokens/tokens.css';
-import './globals.css';
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "@appsupportkit/design-tokens/tokens.css";
+import "./globals.css";
 
 const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: 'Nexus - In-app Chat Support',
-  description: 'Customer support for mobile apps',
+  title: "Nexus — In-app Chat Support",
+  description: "Customer support for mobile apps",
 };
 
 /**
@@ -20,12 +20,12 @@ export const metadata: Metadata = {
  * Zoom is deliberately left unrestricted.
  */
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
-  viewportFit: 'cover',
+  viewportFit: "cover",
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0A0A0B' },
-    { media: '(prefers-color-scheme: light)', color: '#FAFAFA' },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0B" },
+    { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
   ],
 };
 

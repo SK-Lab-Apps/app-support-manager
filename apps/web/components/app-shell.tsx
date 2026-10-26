@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { Inbox, Loader2, LogOut, Menu, X } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { cn } from '@/lib/utils';
-import type { AdminProfile, AppRow } from '@/lib/types';
-import { LogoTile } from '@/components/logo';
-import { NewAppDialog } from '@/components/new-app-dialog';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { IconButton } from '@/components/ui/icon-button';
+import { Inbox, Loader2, LogOut, Menu, X } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import type { AdminProfile, AppRow } from "@/lib/types";
+import { LogoTile } from "@/components/logo";
+import { NewAppDialog } from "@/components/new-app-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { IconButton } from "@/components/ui/icon-button";
 
 function SidebarNav({
   apps,
@@ -32,12 +32,12 @@ function SidebarNav({
         href={href}
         onClick={onNavigate}
         className={cn(
-          'flex items-center justify-between rounded-control px-2 py-1.5 text-sm',
-          'transition-colors duration-fast ease-out',
-          'coarse:min-h-[44px]',
+          "flex items-center justify-between rounded-control px-2 py-1.5 text-sm",
+          "transition-colors duration-fast ease-out",
+          "coarse:min-h-[44px]",
           active
-            ? 'bg-surface-active text-primary'
-            : 'text-secondary hover:bg-surface-hover hover:text-primary',
+            ? "bg-surface-active text-primary"
+            : "text-secondary hover:bg-surface-hover hover:text-primary",
         )}
       >
         <span className="truncate">{label}</span>
@@ -56,13 +56,8 @@ function SidebarNav({
         <LogoTile size={20} />
         {/* The full name doesn't fit the narrowest sidebar on one line, so
             the descriptor sits under the name. */}
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold tracking-heading">
-            Nexus
-          </span>
-          <span className="truncate text-2xs text-tertiary">
-            In-app Chat Support
-          </span>
+        <span className="truncate text-sm font-semibold tracking-heading">
+          Nexus
         </span>
       </div>
 
@@ -84,7 +79,7 @@ function SidebarNav({
           Shared
         </p>
         <div className="flex flex-col gap-px">
-          {item('/templates', 'Templates')}
+          {item("/templates", "Templates")}
         </div>
       </nav>
 
@@ -121,17 +116,17 @@ export function AppShell({
     const { body } = document;
     const previousOverflow = body.style.overflow;
     const trigger = menuButtonRef.current;
-    body.style.overflow = 'hidden';
+    body.style.overflow = "hidden";
     drawerRef.current?.focus();
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawerOpen(false);
+      if (e.key === "Escape") setDrawerOpen(false);
     };
-    window.addEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
 
     return () => {
       body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener("keydown", onKey);
       trigger?.focus();
     };
   }, [drawerOpen]);
@@ -139,7 +134,7 @@ export function AppShell({
   async function signOut() {
     setSigningOut(true);
     await createClient().auth.signOut();
-    window.location.assign('/login');
+    window.location.assign("/login");
   }
 
   return (
@@ -164,9 +159,9 @@ export function AppShell({
             aria-label="Navigation"
             tabIndex={-1}
             className={cn(
-              'absolute inset-y-0 left-0 w-[min(17rem,82vw)] outline-none',
-              'animate-slide-in-left border-r border-border bg-overlay shadow-overlay',
-              'pl-safe-l pt-safe-t',
+              "absolute inset-y-0 left-0 w-[min(17rem,82vw)] outline-none",
+              "animate-slide-in-left border-r border-border bg-overlay shadow-overlay",
+              "pl-safe-l pt-safe-t",
             )}
           >
             <IconButton
@@ -205,7 +200,7 @@ export function AppShell({
             <IconButton
               onClick={signOut}
               disabled={signingOut}
-              aria-label={signingOut ? 'Signing out' : 'Sign out'}
+              aria-label={signingOut ? "Signing out" : "Sign out"}
               title="Sign out"
             >
               {signingOut ? (
