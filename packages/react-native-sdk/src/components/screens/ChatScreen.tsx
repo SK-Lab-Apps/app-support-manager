@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
+  type NativeScrollEvent,
   type ViewStyle,
 } from 'react-native';
 import type { Translator } from '../../i18n';
@@ -29,6 +29,8 @@ import {
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 /** The counter only appears once the limit is actually in play. */
 const COUNTER_VISIBLE_FROM = USER_MESSAGE_MAX - 100;
+/** How far above the bottom still counts as reading the latest messages. */
+const END_SLOP = 48;
 
 /**
  * The chat is every conversation this user has had, in time order. The
@@ -151,6 +153,10 @@ function buildRows(
       startsUnread: item.key === firstUnreadKey,
     };
   });
+}
+
+function isAtEnd({ contentOffset, contentSize, layoutMeasurement }: NativeScrollEvent) {
+  return contentOffset.y + layoutMeasurement.height >= contentSize.height - END_SLOP;
 }
 
 function Separator({
@@ -367,6 +373,30 @@ export function ChatScreen({
 }) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+  /**
+   * Whether the chat is showing its latest messages. It opens that way and
+   * stays there while anything changes size — messages arriving, the
+   * keyboard or a longer draft shrinking the view — unless the user has
+   * scrolled up to read.
+   */
+  const atEnd = useRef(true);
+  const followEnd = useCallback(() => {
+    if (atEnd.current) scrollRef.current?.scrollToEnd({ animated: false });
+  }, []);
+
+  // The sheet makes room for the keyboard with the keyboard's own animation,
+  // which can shrink this view frame by frame after onLayout has already
+  // fired, so follow again once the keyboard has settled.
+  useEffect(() => {
+    const settle = () => {
+      if (atEnd.current) scrollRef.current?.scrollToEnd({ animated: true });
+    };
+    const subscriptions = [
+      Keyboard.addListener('keyboardDidShow', settle),
+      Keyboard.addListener('keyboardDidHide', settle),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
 
   const items = useMemo(
     () => buildItems(threads ?? [], outbox),
@@ -381,21 +411,17 @@ export function ChatScreen({
   const valid =
     trimmed.length >= USER_MESSAGE_MIN && trimmed.length <= USER_MESSAGE_MAX;
 
-  useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: false });
-  }, [items.length]);
-
   function handleSend() {
     if (!valid) return;
+    // What the user just wrote is always shown, wherever they had scrolled.
+    atEnd.current = true;
     onSend(trimmed);
     setDraft('');
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    // The sheet keeps this clear of the keyboard.
+    <View style={{ flex: 1 }}>
       {/* Header */}
       <View
         style={{
@@ -483,9 +509,19 @@ export function ChatScreen({
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() =>
-            scrollRef.current?.scrollToEnd({ animated: false })
-          }
+          onContentSizeChange={followEnd}
+          onLayout={followEnd}
+          // Only the user's own scrolling decides whether they're reading
+          // older messages; the view shrinking under them doesn't.
+          onScrollBeginDrag={() => {
+            atEnd.current = false;
+          }}
+          onScrollEndDrag={(e) => {
+            atEnd.current = isAtEnd(e.nativeEvent);
+          }}
+          onMomentumScrollEnd={(e) => {
+            atEnd.current = isAtEnd(e.nativeEvent);
+          }}
         >
           {rows.map((row) => (
             <View key={row.item.key}>
@@ -605,6 +641,6 @@ export function ChatScreen({
           </View>
         )}
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

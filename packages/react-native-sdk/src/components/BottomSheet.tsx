@@ -13,17 +13,76 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Animated,
   Easing,
+  Keyboard,
+  LayoutAnimation,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   useWindowDimensions,
   View,
+  type KeyboardEvent,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { SupportTheme } from '../theme';
 
 const SLIDE_MS = 260;
 const FADE_MS = 200;
+
+/**
+ * How far the keyboard reaches into the sheet, on iOS. The sheet sits on the
+ * bottom edge, so that is the keyboard's whole height. React Native's
+ * KeyboardAvoidingView can't be used for this: it measures itself against its
+ * parent rather than the screen, so inside a sheet it pads too little and the
+ * composer ends up behind the keyboard. Android needs nothing — the Modal's
+ * window resizes for the keyboard.
+ */
+function useKeyboardOverlap(): number {
+  const { height: windowHeight } = useWindowDimensions();
+  const [overlap, setOverlap] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const update = (event: KeyboardEvent, next: number) => {
+      // Moves with the keyboard rather than ahead of it, as
+      // KeyboardAvoidingView does (10ms is the shortest RN accepts).
+      if (event.duration) {
+        const duration = Math.max(event.duration, 10);
+        LayoutAnimation.configureNext({
+          duration,
+          update: { duration, type: LayoutAnimation.Types.keyboard },
+        });
+      }
+      setOverlap(next);
+    };
+    const subscriptions = [
+      Keyboard.addListener('keyboardWillShow', (event) => {
+        const { screenY, height } = event.endCoordinates;
+        // With Prefer Cross-Fade Transitions on, iOS reports the top as 0.
+        const top = screenY > 0 ? screenY : windowHeight - height;
+        update(event, Math.max(windowHeight - top, 0));
+      }),
+      Keyboard.addListener('keyboardWillHide', (event) => update(event, 0)),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, [windowHeight]);
+
+  return overlap;
+}
+
+/**
+ * The content area clears the home indicator — or, while it's up, the
+ * keyboard, which covers the indicator.
+ */
+function SheetContent({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardOverlap();
+  return (
+    <View style={{ flex: 1, paddingBottom: Math.max(keyboard, insets.bottom) }}>
+      {children}
+    </View>
+  );
+}
 
 export function BottomSheet({
   visible,
@@ -180,9 +239,7 @@ export function BottomSheet({
                 }}
               />
             </View>
-            <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
-              {children}
-            </SafeAreaView>
+            <SheetContent>{children}</SheetContent>
           </Animated.View>
         </View>
       </SafeAreaProvider>
