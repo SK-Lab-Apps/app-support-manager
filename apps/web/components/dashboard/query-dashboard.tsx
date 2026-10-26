@@ -190,15 +190,21 @@ export function QueryDashboard({
   // Live updates: new queries/messages refresh the list, stats, and the
   // sidebar's open counts (via router.refresh()).
   useEffect(() => {
+    let pending: ReturnType<typeof setTimeout> | undefined;
     const channel = supabase
       .channel(`dashboard-${appId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "queries" },
+        // A send or a cleared Sent log touches many conversations at once;
+        // one refresh covers them all.
         () => {
-          void fetchRows();
-          void fetchStats();
-          router.refresh();
+          clearTimeout(pending);
+          pending = setTimeout(() => {
+            void fetchRows();
+            void fetchStats();
+            router.refresh();
+          }, 250);
         },
       )
       .on(
@@ -210,6 +216,7 @@ export function QueryDashboard({
       )
       .subscribe();
     return () => {
+      clearTimeout(pending);
       void supabase.removeChannel(channel);
     };
   }, [supabase, appId, fetchRows, fetchStats, router]);
