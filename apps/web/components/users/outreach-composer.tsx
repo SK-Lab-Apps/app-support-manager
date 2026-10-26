@@ -336,6 +336,12 @@ export function OutreachComposer({
                   </Button>
                 </form>
               )}
+              <Link
+                href="/templates"
+                className="ml-auto text-xs text-secondary underline decoration-dotted underline-offset-2 hover:text-primary"
+              >
+                Manage templates
+              </Link>
             </div>
 
             {/* Message */}

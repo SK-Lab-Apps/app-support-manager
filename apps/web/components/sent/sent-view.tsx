@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { BroadcastSummary } from "@/lib/types";
 import { absoluteTime, relativeTime } from "@/lib/utils";
 import { ClearSentLogDialog } from "@/components/sent/clear-sent-log-dialog";
+import { TemplateText } from "@/components/template-text";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/skeleton";
 
@@ -14,24 +15,6 @@ const SHOWN = 100;
 
 function percent(part: number, whole: number): string {
   return whole === 0 ? "—" : `${Math.round((part / whole) * 100)}%`;
-}
-
-/** Placeholders read as what they are, not as text that went out. */
-function Template({ body }: { body: string }) {
-  const parts = body.split(/(\{(?:first_name|name|app)\})/g);
-  return (
-    <>
-      {parts.map((part, i) =>
-        /^\{(first_name|name|app)\}$/.test(part) ? (
-          <span key={i} className="rounded-[3px] bg-surface-active px-0.5 font-mono text-[0.9em] text-secondary">
-            {part}
-          </span>
-        ) : (
-          part
-        ),
-      )}
-    </>
-  );
 }
 
 /** Every send from the Users tab for this app, newest first, with results. */
@@ -139,7 +122,7 @@ export function SentView({ appId }: { appId: string }) {
                 className="flex flex-col gap-2 border-b border-border px-3 py-3 md:px-4"
               >
                 <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm text-primary">
-                  <Template body={b.body} />
+                  <TemplateText body={b.body} />
                 </p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-tertiary">
                   <span className="tnum" title={absoluteTime(b.created_at)}>

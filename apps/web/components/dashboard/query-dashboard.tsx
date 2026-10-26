@@ -346,6 +346,8 @@ export function QueryDashboard({
               { value: "all", label: "All plans" },
               { value: "pro", label: "PRO" },
               { value: "trial", label: "Trial" },
+              { value: "pro_cancelled", label: "PRO cancelled" },
+              { value: "trial_cancelled", label: "Trial cancelled" },
               { value: "free", label: "Free" },
             ]}
           />

@@ -173,9 +173,12 @@ const planClasses: Record<UserPlan, string> = {
   pro: 'border-transparent bg-accent-muted text-accent',
   trial: 'border-border text-secondary',
   free: 'border-transparent text-tertiary',
+  // About to lapse: the same shapes in the warning color.
+  pro_cancelled: 'border-transparent bg-status-danger-bg text-status-danger',
+  trial_cancelled: 'border-border text-status-danger',
 };
 
-/** The user's plan: PRO, Trial or Free, in descending emphasis. */
+/** The user's plan: PRO, Trial or Free, in descending emphasis; cancelled stands out. */
 export function PlanChip({
   plan,
   className,

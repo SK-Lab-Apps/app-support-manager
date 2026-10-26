@@ -7,6 +7,11 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 export const PlanSchema = z.enum(['free', 'trial', 'pro']);
 export type UserPlan = z.infer<typeof PlanSchema>;
+/**
+ * What the directory holds: the plans apps report, plus the cancelled ones
+ * RevenueCat's webhook sets (see the revenuecat-webhook function).
+ */
+export type StoredPlan = UserPlan | 'trial_cancelled' | 'pro_cancelled';
 
 /** What SDK 0.4+ sends about the current user. */
 export const ReportedUserSchema = z.object({
@@ -51,19 +56,30 @@ export async function touchAppUser(
     return;
   }
 
-  const row: Record<string, unknown> = {
-    app_id: appId,
-    revenuecat_id: revenuecatId,
-    plan: fields.plan,
+  const seen: Record<string, unknown> = {
     last_seen_at: new Date().toISOString(),
   };
-  if (fields.name !== undefined) row.name = fields.name;
-  if (fields.appVersion !== undefined) row.app_version = fields.appVersion;
-  if (fields.sdkVersion) row.sdk_version = fields.sdkVersion;
-  if (fields.platform !== undefined) row.platform = fields.platform;
+  if (fields.name !== undefined) seen.name = fields.name;
+  if (fields.appVersion !== undefined) seen.app_version = fields.appVersion;
+  if (fields.sdkVersion) seen.sdk_version = fields.sdkVersion;
+  if (fields.platform !== undefined) seen.platform = fields.platform;
 
-  const { error } = await supabase
+  // A cancelled plan comes from RevenueCat's webhook. The app can't tell it
+  // apart — the user keeps their access until the period ends — so a report
+  // of the same plan leaves it marked cancelled.
+  const { data: kept, error: keepError } = await supabase
     .from('app_users')
-    .upsert(row, { onConflict: 'app_id,revenuecat_id' });
+    .update(seen)
+    .eq('app_id', appId)
+    .eq('revenuecat_id', revenuecatId)
+    .eq('plan', `${fields.plan}_cancelled`)
+    .select('revenuecat_id');
+  if (keepError) console.error('app-users: update failed', keepError);
+  if (kept && kept.length > 0) return;
+
+  const { error } = await supabase.from('app_users').upsert(
+    { app_id: appId, revenuecat_id: revenuecatId, plan: fields.plan, ...seen },
+    { onConflict: 'app_id,revenuecat_id' },
+  );
   if (error) console.error('app-users: upsert failed', error);
 }

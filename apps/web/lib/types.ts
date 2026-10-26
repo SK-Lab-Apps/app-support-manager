@@ -10,7 +10,8 @@ export interface PushSubscriptionRow {
 
 /** 'support' is the single chat (SDK 0.4+); the other three come from older SDKs. */
 export type QueryType = 'feedback' | 'feature_request' | 'bug_report' | 'support';
-export type UserPlan = 'free' | 'trial' | 'pro';
+/** The cancelled plans: auto-renew is off, access lasts until the period ends. */
+export type UserPlan = 'free' | 'trial' | 'pro' | 'trial_cancelled' | 'pro_cancelled';
 export type QueryStatus = 'open' | 'resolved';
 export type MessageSender = 'user' | 'admin';
 
@@ -146,6 +147,8 @@ export const PLAN_LABEL: Record<UserPlan, string> = {
   free: 'Free',
   trial: 'Trial',
   pro: 'PRO',
+  trial_cancelled: 'Trial cancelled',
+  pro_cancelled: 'PRO cancelled',
 };
 
 export type SortKey = 'newest' | 'oldest' | 'active';

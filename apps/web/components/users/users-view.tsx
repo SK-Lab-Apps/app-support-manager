@@ -184,6 +184,8 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
               { value: "all", label: "All plans" },
               { value: "pro", label: "PRO" },
               { value: "trial", label: "Trial" },
+              { value: "pro_cancelled", label: "PRO cancelled" },
+              { value: "trial_cancelled", label: "Trial cancelled" },
             ]}
           />
           <FilterSelect

@@ -18,6 +18,7 @@ import { z } from 'npm:zod@3.23.8';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/app-auth.ts';
+import type { StoredPlan } from '../_shared/app-users.ts';
 import { ADMIN_LANGUAGE, baseLanguage } from '../_shared/languages.ts';
 import {
   translateInBackground,
@@ -51,7 +52,7 @@ const BodySchema = z.object({
 interface Recipient {
   revenuecat_id: string;
   name: string | null;
-  plan: 'free' | 'trial' | 'pro';
+  plan: StoredPlan;
   app_version: string | null;
   language: string;
   pushToken: string | null;
@@ -246,7 +247,8 @@ Deno.serve(async (req) => {
         // queries.user_name and app_version are required; a user known only
         // from a push registration has neither.
         user_name: r.name ?? 'User',
-        is_paid: r.plan === 'pro',
+        // A cancelled PRO user has still paid for the period they're in.
+        is_paid: r.plan === 'pro' || r.plan === 'pro_cancelled',
         app_version: r.app_version ?? 'unknown',
         body,
         body_translated: translatedBody,

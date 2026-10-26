@@ -40,6 +40,7 @@ supabase functions deploy send-message
 supabase functions deploy register-user
 supabase functions deploy send-outreach
 supabase functions deploy review-opened
+supabase functions deploy revenuecat-webhook
 ```
 
 Translation needs an OpenAI API key ([platform.openai.com](https://platform.openai.com)):
@@ -78,6 +79,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 | `OPENAI_API_KEY` | Translation | Without it, messages are stored and delivered untranslated and the dashboard shows a retry. |
 | `TRANSLATION_MODEL` | — | Defaults to `gpt-5.6-luna`. Set it to trade cost for quality without redeploying. |
 | `RESEND_API_KEY`, `ESCALATION_CRON_TOKEN`, `DASHBOARD_URL` | Unread escalation | See the escalation section. `ESCALATION_CRON_TOKEN` also authenticates the translation sweep. |
+| `REVENUECAT_WEBHOOK_SECRET` | Cancelled plans | Any long random string. RevenueCat sends it with each event; see the cancellations section. |
 
 ## Multilingual support
 
@@ -131,14 +133,23 @@ The new key is shown once, like at registration. Only one old key is kept: rotat
 
 Each app has **Inbox**, **Users** and **Sent** tabs.
 
-- **Users** lists the app's paying and trial users — name, plan (PRO or Trial), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them. Free users aren't stored: they're never messaged first, and a user whose trial or subscription lapses leaves the list the next time the SDK reports them. Their conversations stay in the inbox like anyone's.
-- The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps.
+- **Users** lists the app's paying and trial users — name, plan (PRO, Trial, or either one cancelled), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them. Free users aren't stored: they're never messaged first, and a user whose trial or subscription lapses leaves the list the next time the SDK reports them. Their conversations stay in the inbox like anyone's.
+- The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps (see Templates below).
 - Each user gets the message as a new conversation in their support chat, translated into their language: the template is translated once per language with the placeholders intact, then filled in. A language that fails to translate is sent in English and picked up by the translation sweep.
 - These conversations stay out of the inbox, the open counts and the response-time stats until the user replies; then they appear like any other.
 - Push is a per-send choice, off by default — without it users see the badge on the support button. Apple's guidelines don't allow promotional pushes unless users opted in to them, so keep push for service messages.
-- **Sent** lists each send with its audience, how many read it, and how many replied.
+- **Sent** lists each send with its audience, how many read it, and how many replied. **Clear log** removes every send from the list, with its counts, in one transaction (`clear_sent_log`); the messages stay in users' chats, and a reply still reaches the inbox.
 
 The send runs in `send-outreach` (admin JWT), and the conversation, first message and broadcast record for every recipient are written in one transaction (`create_outreach`), so a failure part-way sends nothing.
+
+### Templates
+
+**Templates** in the sidebar lists every saved message — shared by all apps — to add, edit and delete. They're offered in two places:
+
+- **Messaging users** from the Users tab, where `{first_name}`, `{name}` and `{app}` are filled in per recipient when it's sent (the composer can also save, update or delete a template on the spot).
+- **Replying** in a conversation: the **Templates** picker beside the send button fills the template in for that user and puts it at the cursor, to edit before sending. Like any reply it's written in English and translated for the user.
+
+Deleting a template doesn't touch anything already sent with it.
 
 ### Deleting conversations
 
@@ -153,6 +164,20 @@ A reply can carry a **Rate on the App Store / Google Play** button: in a convers
 - One request per stretch of conversation: after asking, the button waits until the user writes again.
 - When the user taps through, the dashboard shows **Opened the store** under the request. That's a tap, not a review — the stores don't report who reviewed.
 - It is a link to the review page, not an in-app rating prompt, and nothing may be offered in exchange: Apple and Google both forbid incentivized reviews, and the composer repeats this.
+
+### Cancellations
+
+A user who turns off auto-renew keeps their access until the period ends, so their app still reports them as Trial or PRO. RevenueCat's webhook marks them **Trial cancelled** or **PRO cancelled** as soon as they cancel, in the Users tab and the inbox, both filterable by it. Nothing is sent to them — reaching out is up to you. Turning auto-renew back on, renewing or buying again puts them back on Trial or PRO, and like anyone, they leave the Users tab once their app reports them free.
+
+Set up once, then once per app:
+
+1. `supabase secrets set REVENUECAT_WEBHOOK_SECRET=<long random string>` and deploy `revenuecat-webhook`.
+2. In RevenueCat, **Integrations → Webhooks → Add**, for the app's project:
+   - **URL**: `https://<project-ref>.supabase.co/functions/v1/revenuecat-webhook?app=<app id>` — the app id is the one in the dashboard's URL, `/apps/<app id>`.
+   - **Authorization header**: `Bearer <the same secret>`.
+3. **Send test event** should come back 200.
+
+Users are matched by RevenueCat app user id (and its aliases), which is why the SDK's `revenuecatId` should be RevenueCat's own. Someone not in the Users tab — free, or never seen by SDK 0.4+ — is skipped.
 
 ## Using the SDK
 

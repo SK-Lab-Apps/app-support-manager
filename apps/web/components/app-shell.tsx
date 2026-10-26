@@ -72,6 +72,13 @@ function SidebarNav({
             <p className="text-xs text-secondary">No apps registered</p>
           </div>
         )}
+
+        <p className="px-2 pb-1 pt-4 text-2xs font-medium uppercase tracking-wide text-tertiary">
+          Shared
+        </p>
+        <div className="flex flex-col gap-px">
+          {item('/templates', 'Templates')}
+        </div>
       </nav>
 
       <div className="shrink-0 border-t border-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">

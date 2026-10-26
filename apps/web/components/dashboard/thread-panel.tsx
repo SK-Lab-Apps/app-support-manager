@@ -1,6 +1,7 @@
 "use client";
 
 import { RotateCw, Star, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -12,9 +13,11 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { callFunction } from "@/lib/functions";
 import { isTranslated, languageName } from "@/lib/languages";
+import { renderTemplate } from "@/lib/outreach";
 import type {
   MessageKind,
   MessageRow,
+  MessageTemplate,
   PushSubscriptionRow,
   QueryListRow,
   StoreListing,
@@ -29,10 +32,13 @@ import {
   PushStatusChip,
   StatusIndicator,
 } from "@/components/ui/chips";
+import { FilterSelect } from "@/components/ui/filter-select";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ADMIN_MAX = 1000;
+/** The template picker's way out to the Templates page. */
+const MANAGE_TEMPLATES = "manage";
 
 interface RawMessage {
   id: string;
@@ -111,7 +117,10 @@ export function ThreadPanel({
   const [retrying, setRetrying] = useState<string | null>(null);
   const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
   const [reviewMode, setReviewMode] = useState(false);
+  const [templates, setTemplates] = useState<MessageTemplate[] | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter();
 
   const resolved = row.status === "resolved";
   const translating = isTranslated(row.user_language);
@@ -215,6 +224,15 @@ export function ThreadPanel({
     markRead,
   ]);
 
+  // Templates for the reply; without them the picker just says so.
+  useEffect(() => {
+    void supabase
+      .from("message_templates")
+      .select("*")
+      .order("name")
+      .then(({ data }) => setTemplates((data ?? []) as MessageTemplate[]));
+  }, [supabase]);
+
   // Live thread: refetch (and re-mark read) when a message lands here.
   useEffect(() => {
     const channel = supabase
@@ -309,6 +327,32 @@ export function ThreadPanel({
         : askedSinceUserWrote
           ? "Already asked — wait until they write again"
           : null;
+
+  /**
+   * Fills a template in for this user and puts it at the cursor, so it can
+   * open the reply or go after a line of the admin's own.
+   */
+  function pickTemplate(value: string) {
+    if (value === MANAGE_TEMPLATES) {
+      router.push("/templates");
+      return;
+    }
+    const template = templates?.find((t) => t.id === value);
+    if (!template) return;
+    const text = renderTemplate(
+      template.body,
+      { name: row.user_name },
+      row.app_name,
+    );
+    const el = draftRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    setDraft(draft.slice(0, start) + text + draft.slice(end));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + text.length, start + text.length);
+    });
+  }
 
   function toggleReviewMode() {
     const next = !reviewMode;
@@ -655,6 +699,7 @@ export function ThreadPanel({
               </p>
             )}
             <textarea
+              ref={draftRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -689,6 +734,28 @@ export function ThreadPanel({
                 {draft.length}/{ADMIN_MAX}
               </span>
               <div className="ml-auto flex items-center gap-2">
+                {/* Always back on its label: picking inserts, it doesn't select. */}
+                <FilterSelect
+                  label="Insert a template"
+                  value=""
+                  onChange={pickTemplate}
+                  options={[
+                    {
+                      value: "",
+                      label:
+                        templates === null
+                          ? "Templates…"
+                          : templates.length === 0
+                            ? "No templates"
+                            : "Templates",
+                    },
+                    ...(templates ?? []).map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                    })),
+                    { value: MANAGE_TEMPLATES, label: "Manage templates…" },
+                  ]}
+                />
                 <Button
                   type="button"
                   size="sm"

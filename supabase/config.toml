@@ -52,3 +52,8 @@ verify_jwt = false
 # (ESCALATION_CRON_TOKEN), which the function checks itself.
 [functions.escalate-unread]
 verify_jwt = false
+
+# Machine-to-machine: RevenueCat's webhook, with a shared bearer token
+# (REVENUECAT_WEBHOOK_SECRET), which the function checks itself.
+[functions.revenuecat-webhook]
+verify_jwt = false
