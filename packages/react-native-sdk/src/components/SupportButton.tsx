@@ -24,6 +24,7 @@ import {
 import { openStoreReview, storeLinks, storePlatform } from '../review';
 import { themeFor } from '../theme';
 import type { SupportButtonProps, ThemeName } from '../types';
+import { useOutbox } from '../useOutbox';
 import { IDLE_POLL_MS, useSupportThreads } from '../useSupportThreads';
 import { userPlan, validateProps } from '../utils';
 import { BottomSheet } from './BottomSheet';
@@ -84,6 +85,7 @@ export function SupportButton(props: SupportButtonProps) {
   const {
     threads,
     totalUnread,
+    newSince,
     loading,
     errorKey,
     serverLanguage,
@@ -151,6 +153,28 @@ export function SupportButton(props: SupportButtonProps) {
 
   const { name: userName, revenuecatId, appVersion } = props.user;
   const plan = userPlan(props.user);
+
+  const {
+    outbox,
+    error: sendError,
+    send,
+    retry: retrySend,
+    clearError: clearSendError,
+  } = useOutbox({
+    threads,
+    deliver: async (message) => {
+      const sent = await sendMessage(config, {
+        revenuecatId,
+        message,
+        language,
+        user: { name: userName, plan, appVersion, platform: storePlatform() },
+      });
+      // Not awaited: the bubble is already up, and it stays until the
+      // reload brings the server's copy.
+      void reload();
+      return sent.message_id;
+    },
+  });
 
   /**
    * Reports the user on load, and whenever who they are changes, so the team
@@ -281,21 +305,6 @@ export function SupportButton(props: SupportButtonProps) {
     }
   }
 
-  async function handleSend(message: string): Promise<string | null> {
-    try {
-      await sendMessage(config, {
-        revenuecatId,
-        message,
-        language,
-        user: { name: userName, plan, appVersion, platform: storePlatform() },
-      });
-      await reload();
-      return null;
-    } catch (e) {
-      return writeErrorMessage(e);
-    }
-  }
-
   const reviewLinks = storeLinks(store);
   const reviewLabel =
     reviewLinks === null
@@ -358,10 +367,15 @@ export function SupportButton(props: SupportButtonProps) {
             strings={strings}
             language={language}
             threads={threads}
+            newSince={newSince}
             loading={loading}
             error={errorKey === null ? null : strings.t(errorKey)}
             onRetry={refresh}
-            onSend={handleSend}
+            outbox={outbox}
+            sendError={sendError === null ? null : writeErrorMessage(sendError)}
+            onSend={send}
+            onRetrySend={retrySend}
+            onClearSendError={clearSendError}
             onChangeLanguage={() => {
               setDraftLanguage(language);
               setLanguageError(null);

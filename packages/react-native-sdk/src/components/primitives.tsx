@@ -174,11 +174,14 @@ export function SecondaryButton({
 export function EmptyState({
   message,
   hint,
+  note,
   theme,
   icon,
 }: {
   message: string;
   hint?: string;
+  /** A short fact set apart in a pill under the hint. */
+  note?: string;
   theme: SupportTheme;
   icon?: ReactNode;
 }) {
@@ -212,6 +215,23 @@ export function EmptyState({
         >
           {hint}
         </Text>
+      )}
+      {note !== undefined && (
+        <View
+          style={{
+            marginTop: 4,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: theme.radii.pill,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            backgroundColor: theme.colors.surface,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '500', color: theme.colors.textSecondary }}>
+            {note}
+          </Text>
+        </View>
       )}
     </View>
   );

@@ -9,6 +9,7 @@ export const nl: StringTable = {
   'home.empty': 'Nog geen gesprekken',
   'home.emptyHint':
     'Alles wat je stuurt komt bij het team terecht, en hun antwoorden verschijnen in dit venster.',
+  'home.replyTime': 'We reageren binnen 24 uur',
   'home.noMessages': 'Nog geen berichten',
   'home.you': 'Jij',
   'home.threadA11y': 'Gesprek: {type}',
@@ -44,6 +45,7 @@ export const nl: StringTable = {
   'thread.readOnly': 'Dit gesprek is afgehandeld en alleen-lezen',
   'thread.placeholder': 'Schrijf een antwoord…',
   'chat.placeholder': 'Schrijf een bericht…',
+  'chat.notSent': 'Niet verzonden · Tik om opnieuw te proberen',
   'review.appStore': 'Beoordelen in de App Store',
   'review.playStore': 'Beoordelen in Google Play',
   'thread.sendA11y': 'Antwoord verzenden',

@@ -9,6 +9,7 @@ export const pt: StringTable = {
   'home.empty': 'Ainda não há conversas',
   'home.emptyHint':
     'Tudo o que você enviar chega à equipe, e as respostas voltam para esta janela.',
+  'home.replyTime': 'Respondemos em até 24 horas',
   'home.noMessages': 'Ainda não há mensagens',
   'home.you': 'Você',
   'home.threadA11y': 'Conversa: {type}',
@@ -44,6 +45,7 @@ export const pt: StringTable = {
   'thread.readOnly': 'Esta conversa está resolvida e é somente leitura',
   'thread.placeholder': 'Escreva uma resposta…',
   'chat.placeholder': 'Escreva uma mensagem…',
+  'chat.notSent': 'Não enviada · Toque para tentar novamente',
   'review.appStore': 'Avaliar na App Store',
   'review.playStore': 'Avaliar no Google Play',
   'thread.sendA11y': 'Enviar resposta',

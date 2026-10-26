@@ -9,6 +9,7 @@ export const ja: StringTable = {
   'home.empty': 'まだ会話はありません',
   'home.emptyHint':
     '送信した内容はチームに届き、返信はこの画面に戻ってきます。',
+  'home.replyTime': '24時間以内に返信します',
   'home.noMessages': 'まだメッセージはありません',
   'home.you': 'あなた',
   'home.threadA11y': '会話：{type}',
@@ -44,6 +45,7 @@ export const ja: StringTable = {
   'thread.readOnly': 'この会話は解決済みで、読み取り専用です',
   'thread.placeholder': '返信を入力…',
   'chat.placeholder': 'メッセージを入力…',
+  'chat.notSent': '未送信 · タップして再送信',
   'review.appStore': 'App Storeで評価する',
   'review.playStore': 'Google Playで評価する',
   'thread.sendA11y': '返信を送信',

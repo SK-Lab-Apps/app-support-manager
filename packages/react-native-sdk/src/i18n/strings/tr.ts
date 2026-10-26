@@ -9,6 +9,7 @@ export const tr: StringTable = {
   'home.empty': 'Henüz görüşme yok',
   'home.emptyHint':
     'Gönderdiğiniz her şey ekibe ulaşır ve yanıtları bu pencereye geri gelir.',
+  'home.replyTime': '24 saat içinde yanıt veriyoruz',
   'home.noMessages': 'Henüz mesaj yok',
   'home.you': 'Siz',
   'home.threadA11y': 'Görüşme: {type}',
@@ -44,6 +45,7 @@ export const tr: StringTable = {
   'thread.readOnly': 'Bu görüşme çözüldü ve salt okunur',
   'thread.placeholder': 'Bir yanıt yazın…',
   'chat.placeholder': 'Bir mesaj yazın…',
+  'chat.notSent': 'Gönderilmedi · Tekrar denemek için dokunun',
   'review.appStore': "App Store'da değerlendir",
   'review.playStore': "Google Play'de değerlendir",
   'thread.sendA11y': 'Yanıtı gönder',

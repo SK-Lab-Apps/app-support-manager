@@ -86,11 +86,11 @@ export interface SupportButtonProps {
   /**
    * Idle poll interval (ms) — how often the unread badge is refreshed while
    * the sheet is CLOSED, using a lightweight count-only endpoint. Default
-   * 60000; set 0 to disable idle polling (mount / sheet-open / foreground
-   * refreshes still happen).
+   * 10000; set 0 to disable idle polling (mount / sheet-open / foreground /
+   * support-push refreshes still happen). Ticks are skipped while the app
+   * is in the background.
    *
-   * While the sheet is open the SDK polls faster on its own: every 15s on
-   * the thread list and every 5s inside a thread, where latency is felt.
+   * While the chat is on screen the SDK polls every 5s on its own.
    */
   pollIntervalMs?: number;
   /**

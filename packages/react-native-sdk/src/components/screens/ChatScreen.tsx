@@ -7,12 +7,14 @@ import {
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native';
 import type { Translator } from '../../i18n';
 import { LANGUAGE_LABELS, type Language } from '../../i18n/languages';
 import type { SupportTheme } from '../../theme';
 import type { Thread, ThreadMessage } from '../../types';
 import { USER_MESSAGE_MAX, USER_MESSAGE_MIN } from '../../types';
+import type { OutgoingMessage } from '../../useOutbox';
 import { dayLabel, formatDate, formatTime, isSameDay } from '../../utils';
 import { ArrowUpIcon, CloseIcon, GlobeIcon } from '../icons';
 import {
@@ -34,7 +36,14 @@ const COUNTER_VISIBLE_FROM = USER_MESSAGE_MAX - 100;
  * here as a divider, and the next message simply starts the next one.
  */
 type Item =
-  | { kind: 'message'; key: string; at: number; message: ThreadMessage }
+  | {
+      kind: 'message';
+      key: string;
+      at: number;
+      message: ThreadMessage;
+      /** Set while the user's own message is on its way, or failed to go. */
+      delivery?: 'sending' | 'failed';
+    }
   | { kind: 'resolved'; key: string; at: number; resolvedAt: string };
 
 interface Row {
@@ -47,10 +56,12 @@ interface Row {
   startsUnread: boolean;
 }
 
-function buildItems(threads: Thread[]): Item[] {
+function buildItems(threads: Thread[], outbox: OutgoingMessage[]): Item[] {
   const items: Item[] = [];
+  const delivered = new Set<string>();
   for (const thread of threads) {
     for (const message of thread.messages) {
+      delivered.add(message.id);
       items.push({
         kind: 'message',
         key: message.id,
@@ -67,22 +78,47 @@ function buildItems(threads: Thread[]): Item[] {
       });
     }
   }
-  return items.sort((a, b) => a.at - b.at);
+  items.sort((a, b) => a.at - b.at);
+
+  // Outgoing messages go last, in the order written: they are the newest
+  // thing in the chat, and their device timestamps can't be trusted to sort
+  // against the server's.
+  for (const outgoing of outbox) {
+    if (outgoing.messageId !== null && delivered.has(outgoing.messageId)) continue;
+    items.push({
+      kind: 'message',
+      key: outgoing.key,
+      at: Date.parse(outgoing.created_at),
+      message: {
+        id: outgoing.messageId ?? outgoing.key,
+        sender: 'user',
+        body: outgoing.body,
+        created_at: outgoing.created_at,
+        translation_pending: false,
+      },
+      delivery: outgoing.status === 'sent' ? undefined : outgoing.status,
+    });
+  }
+  return items;
 }
 
-function buildRows(items: Item[], unreadCount: number, strings: Translator): Row[] {
-  // Unread messages are the newest support replies, so the divider goes
-  // above the Nth-from-last of them.
-  let remaining = unreadCount;
-  let firstUnreadKey: string | null = null;
-  for (let i = items.length - 1; i >= 0 && remaining > 0; i -= 1) {
-    const candidate = items[i];
-    if (candidate?.kind !== 'message' || candidate.message.sender !== 'admin') {
-      continue;
-    }
-    remaining -= 1;
-    firstUnreadKey = candidate.key;
-  }
+function buildRows(
+  items: Item[],
+  newSince: number | null,
+  strings: Translator,
+): Row[] {
+  // The divider goes above the first support reply from `newSince` on. It
+  // is a time rather than a count, so replies that arrive while the user
+  // reads join the block below it instead of pushing it down.
+  const firstUnreadKey =
+    newSince === null
+      ? null
+      : (items.find(
+          (item) =>
+            item.kind === 'message' &&
+            item.message.sender === 'admin' &&
+            item.at >= newSince,
+        )?.key ?? null);
 
   // Grouped by sender alone: two replies from two different admins are two
   // messages from "Support" on this side. A divider always breaks a group.
@@ -149,20 +185,24 @@ function Separator({
 
 function MessageBubble({
   message,
+  delivery,
   firstInGroup,
   lastInGroup,
   theme,
   strings,
   reviewLabel,
   onOpenReview,
+  onRetry,
 }: {
   message: ThreadMessage;
+  delivery: 'sending' | 'failed' | undefined;
   firstInGroup: boolean;
   lastInGroup: boolean;
   theme: SupportTheme;
   strings: Translator;
   reviewLabel: string | null;
   onOpenReview: (messageId: string) => void;
+  onRetry: () => void;
 }) {
   // A review request whose store isn't set up for this platform still
   // reads as the reply it is; it just has no button.
@@ -170,17 +210,19 @@ function MessageBubble({
   const own = message.sender === 'user';
   const round = theme.radii.bubble;
   const tight = theme.radii.bubbleTail;
+  const failed = delivery === 'failed';
+  const style: ViewStyle = {
+    maxWidth: '86%',
+    alignSelf: own ? 'flex-end' : 'flex-start',
+    alignItems: own ? 'flex-end' : 'flex-start',
+    marginTop: firstInGroup ? 10 : 2,
+    gap: 4,
+    // Still on its way: present, but visibly not settled yet.
+    opacity: delivery === 'sending' ? 0.6 : 1,
+  };
 
-  return (
-    <View
-      style={{
-        maxWidth: '86%',
-        alignSelf: own ? 'flex-end' : 'flex-start',
-        alignItems: own ? 'flex-end' : 'flex-start',
-        marginTop: firstInGroup ? 10 : 2,
-        gap: 4,
-      }}
-    >
+  const content = (
+    <>
       {!own && firstInGroup && (
         <Text style={[textStyles.meta(theme), { paddingHorizontal: 4 }]}>
           {strings.t('thread.support')}
@@ -241,16 +283,43 @@ function MessageBubble({
           </Pressable>
         )}
       </View>
-      {lastInGroup && (
-        <Text style={[textStyles.meta(theme), { paddingHorizontal: 4 }]}>
-          {/* A reply whose translation is still in flight says so, rather
-              than showing English that changes under the reader. */}
-          {message.translation_pending
-            ? strings.t('thread.translating')
-            : formatTime(message.created_at, strings)}
+      {failed ? (
+        <Text
+          style={[
+            textStyles.meta(theme),
+            { paddingHorizontal: 4, color: theme.colors.statusDanger },
+          ]}
+        >
+          {strings.t('chat.notSent')}
         </Text>
+      ) : (
+        lastInGroup && (
+          <Text style={[textStyles.meta(theme), { paddingHorizontal: 4 }]}>
+            {/* A reply whose translation is still in flight says so, rather
+                than showing English that changes under the reader. */}
+            {delivery === 'sending'
+              ? strings.t('compose.sending')
+              : message.translation_pending
+                ? strings.t('thread.translating')
+                : formatTime(message.created_at, strings)}
+          </Text>
+        )
       )}
-    </View>
+    </>
+  );
+
+  // Only a failed message does anything on tap: it goes again.
+  return failed ? (
+    <Pressable
+      onPress={onRetry}
+      accessibilityRole="button"
+      accessibilityHint={strings.t('chat.notSent')}
+      style={style}
+    >
+      {content}
+    </Pressable>
+  ) : (
+    <View style={style}>{content}</View>
   );
 }
 
@@ -259,10 +328,15 @@ export function ChatScreen({
   strings,
   language,
   threads,
+  newSince,
   loading,
   error,
   onRetry,
+  outbox,
+  sendError,
   onSend,
+  onRetrySend,
+  onClearSendError,
   onChangeLanguage,
   onClose,
   reviewLabel,
@@ -272,11 +346,19 @@ export function ChatScreen({
   strings: Translator;
   language: Language;
   threads: Thread[] | null;
+  /** Where the "New" divider starts (`created_at` in ms), or null for none. */
+  newSince: number | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  /** Resolves null on success, or a user-facing error message. */
-  onSend: (message: string) => Promise<string | null>;
+  /** The user's messages that are sending, failed, or not in `threads` yet. */
+  outbox: OutgoingMessage[];
+  /** Why the latest send failed, for the line under the composer. */
+  sendError: string | null;
+  /** Hands the message to the outbox; it shows in the chat at once. */
+  onSend: (message: string) => void;
+  onRetrySend: (key: string) => void;
+  onClearSendError: () => void;
   onChangeLanguage: () => void;
   onClose: () => void;
   /** The review button's label, or null when this platform's store isn't set up. */
@@ -284,24 +366,15 @@ export function ChatScreen({
   onOpenReview: (messageId: string) => void;
 }) {
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
-  const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
-  // Captured once threads first arrive: opening the chat marks everything
-  // read within a tick, but the "New" divider should stay put while the
-  // user reads.
-  const [unreadOnOpen, setUnreadOnOpen] = useState<number | null>(null);
-  useEffect(() => {
-    if (unreadOnOpen === null && threads !== null) {
-      setUnreadOnOpen(threads.reduce((sum, t) => sum + t.unread_count, 0));
-    }
-  }, [threads, unreadOnOpen]);
-
-  const items = useMemo(() => buildItems(threads ?? []), [threads]);
+  const items = useMemo(
+    () => buildItems(threads ?? [], outbox),
+    [threads, outbox],
+  );
   const rows = useMemo(
-    () => buildRows(items, unreadOnOpen ?? 0, strings),
-    [items, unreadOnOpen, strings],
+    () => buildRows(items, newSince, strings),
+    [items, newSince, strings],
   );
 
   const trimmed = draft.trim();
@@ -312,14 +385,10 @@ export function ChatScreen({
     scrollRef.current?.scrollToEnd({ animated: false });
   }, [items.length]);
 
-  async function handleSend() {
-    if (!valid || sending) return;
-    setSending(true);
-    setFailedMessage(null);
-    const errorMessage = await onSend(trimmed);
-    setSending(false);
-    if (errorMessage === null) setDraft('');
-    else setFailedMessage(errorMessage);
+  function handleSend() {
+    if (!valid) return;
+    onSend(trimmed);
+    setDraft('');
   }
 
   return (
@@ -391,7 +460,7 @@ export function ChatScreen({
             strings={strings}
           />
         </View>
-      ) : loading && threads === null ? (
+      ) : loading && threads === null && outbox.length === 0 ? (
         <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20, gap: 10 }}>
           <SkeletonBlock width="62%" height={44} theme={theme} radius={theme.radii.bubble} />
           <View style={{ alignItems: 'flex-end' }}>
@@ -404,6 +473,7 @@ export function ChatScreen({
           <EmptyState
             message={strings.t('home.subtitle')}
             hint={strings.t('home.emptyHint')}
+            note={strings.t('home.replyTime')}
             theme={theme}
           />
         </View>
@@ -426,12 +496,14 @@ export function ChatScreen({
               {row.item.kind === 'message' ? (
                 <MessageBubble
                   message={row.item.message}
+                  delivery={row.item.delivery}
                   firstInGroup={row.firstInGroup}
                   lastInGroup={row.lastInGroup}
                   theme={theme}
                   strings={strings}
                   reviewLabel={reviewLabel}
                   onOpenReview={onOpenReview}
+                  onRetry={() => onRetrySend(row.item.key)}
                 />
               ) : (
                 <View style={{ marginTop: 14, marginBottom: 4 }}>
@@ -464,10 +536,9 @@ export function ChatScreen({
             value={draft}
             onChangeText={(v) => {
               setDraft(v);
-              setFailedMessage(null);
+              if (sendError !== null) onClearSendError();
             }}
             multiline
-            editable={!sending}
             placeholder={strings.t('chat.placeholder')}
             placeholderTextColor={theme.colors.textTertiary}
             // Matches the sheet even when the theme is pinned against the
@@ -496,16 +567,14 @@ export function ChatScreen({
             theme={theme}
             tone="accent"
             size={44}
-            disabled={!valid || sending}
-            accessibilityLabel={strings.t(
-              sending ? 'thread.sendingA11y' : 'thread.sendA11y',
-            )}
+            disabled={!valid}
+            accessibilityLabel={strings.t('thread.sendA11y')}
           >
             <ArrowUpIcon color={theme.colors.accentForeground} size={19} />
           </IconButton>
         </View>
 
-        {(draft.length >= COUNTER_VISIBLE_FROM || failedMessage !== null) && (
+        {(draft.length >= COUNTER_VISIBLE_FROM || sendError !== null) && (
           <View
             style={{
               flexDirection: 'row',
@@ -515,9 +584,9 @@ export function ChatScreen({
               paddingHorizontal: 4,
             }}
           >
-            {failedMessage !== null && (
+            {sendError !== null && (
               <Text style={{ fontSize: 12, color: theme.colors.statusDanger }}>
-                {failedMessage}
+                {sendError}
               </Text>
             )}
             {draft.length >= COUNTER_VISIBLE_FROM && (

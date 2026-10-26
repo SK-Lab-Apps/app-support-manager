@@ -89,3 +89,33 @@ export function pruneWatermarks(
   }
   return keep;
 }
+
+/**
+ * Where the chat's "New" divider starts, as a `created_at` (ms): the oldest
+ * of the `badge` newest unread replies, taken as the sheet opens and before
+ * anything is marked read. Null when there is nothing to mark.
+ *
+ * The badge can be ahead of the cached threads — a count poll saw replies a
+ * full load hasn't fetched yet. Those replies are newer than anything
+ * cached, so the divider then starts after the newest cached reply and
+ * lands on them when they arrive.
+ */
+export function firstUnreadAt(
+  threads: Thread[] | null,
+  badge: number,
+): number | null {
+  if (threads === null || badge <= 0) return null;
+  const unread: number[] = [];
+  let newest = 0;
+  for (const thread of threads) {
+    const replies = thread.messages
+      .filter((message) => message.sender === 'admin')
+      .map((message) => Date.parse(message.created_at))
+      .filter(Number.isFinite);
+    for (const at of replies) newest = Math.max(newest, at);
+    unread.push(...replies.slice(Math.max(0, replies.length - thread.unread_count)));
+  }
+  if (unread.length === 0) return newest + 1;
+  unread.sort((a, b) => b - a);
+  return unread[Math.min(badge, unread.length) - 1] ?? null;
+}

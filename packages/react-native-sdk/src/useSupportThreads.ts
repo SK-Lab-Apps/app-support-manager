@@ -22,8 +22,10 @@ import {
   type ApiConfig,
 } from './api';
 import type { StringKey } from './i18n';
+import { onSupportNotificationReceived } from './push';
 import type { StoreListing, Thread } from './types';
 import {
+  firstUnreadAt,
   latestAdminMessageAt,
   pruneWatermarks,
   reconcileThreads,
@@ -32,12 +34,12 @@ import {
 } from './unread';
 
 // Poll cadence by context: fast where latency is felt (looking at the chat,
-// waiting for a reply), slow when the sheet is closed — and the idle tick
+// waiting for a reply), slower when the sheet is closed — and the idle tick
 // uses the count-only endpoint, so it costs ~18 bytes instead of the full
-// thread list.
+// thread list. The full list is only fetched when that count moves.
 const CHAT_POLL_MS = 5_000;
 const SHEET_POLL_MS = 15_000;
-export const IDLE_POLL_MS = 60_000;
+export const IDLE_POLL_MS = 10_000;
 const MIN_POLL_MS = 3_000;
 
 // A failed mark-read used to be dropped on the floor, which resurrected the
@@ -87,6 +89,11 @@ export interface SupportThreadsState {
   /** Server threads with unread counts narrowed by local reads. */
   threads: Thread[] | null;
   totalUnread: number;
+  /**
+   * Where the chat's "New" divider starts (`created_at` in ms), fixed as the
+   * sheet opens so it stays put while the user reads. Null for none.
+   */
+  newSince: number | null;
   /** First load only — there is nothing cached to show yet. */
   loading: boolean;
   /** User-pulled refresh with content already on screen. */
@@ -132,6 +139,7 @@ export function useSupportThreads({
 }): SupportThreadsState {
   const [threads, setThreads] = useState<Thread[] | null>(null);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [newSince, setNewSince] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [errorKey, setErrorKey] = useState<StringKey | null>(null);
@@ -322,10 +330,20 @@ export function useSupportThreads({
       if (seq <= appliedSeq.current) return;
       appliedSeq.current = seq;
       setTotalUnread(data.total_unread);
+
+      // A count the cached threads don't account for means replies that
+      // aren't loaded yet. Fetch them now, so opening the chat shows them
+      // at once — with the "New" divider — instead of popping in after.
+      const cached = rawThreads.current;
+      const known =
+        cached === null
+          ? null
+          : sumUnread(reconcileThreads(cached, watermarks.current));
+      if (data.total_unread !== known) void fetchThreads('background');
     } catch {
       // Best effort: the next tick or the next sheet open reconciles.
     }
-  }, [config, enabled, revenuecatId]);
+  }, [config, enabled, revenuecatId, fetchThreads]);
 
   // Initial load.
   useEffect(() => {
@@ -337,10 +355,27 @@ export function useSupportThreads({
     if (sheetOpen) void fetchThreads('background');
   }, [sheetOpen, fetchThreads]);
 
+  // The divider is placed from this render's values: the badge the user
+  // tapped, before the effect below marks it read. (The chat itself mounts
+  // a render later, by which point everything already reads as seen.) Only
+  // on open — later changes are the user reading.
+  useEffect(() => {
+    if (sheetOpen) setNewSince(firstUnreadAt(threads, totalUnread));
+  }, [sheetOpen]);
+
   // Opening the chat marks everything read immediately, before the next poll.
   useEffect(() => {
     if (chatVisible) markAllRead();
   }, [chatVisible, markAllRead]);
+
+  // A support push means a reply has already landed: load it now rather
+  // than on the next tick, so the badge and the chat both have it.
+  useEffect(() => {
+    if (!enabled) return;
+    return onSupportNotificationReceived(() => {
+      void fetchThreads('background');
+    });
+  }, [enabled, fetchThreads]);
 
   // Cadence follows what the user is looking at; the app returning to the
   // foreground always ticks.
@@ -361,10 +396,14 @@ export function useSupportThreads({
     };
 
     // Clamped so a typo like `pollIntervalMs={30}` can't hammer the API;
-    // 0 (or negative) disables idle polling entirely.
+    // 0 (or negative) disables idle polling entirely. Nobody sees the badge
+    // from the background (Android keeps JS timers running there), so ticks
+    // wait for the foreground, which catches up with one of its own.
     const timer =
       intervalMs > 0
-        ? setInterval(tick, Math.max(intervalMs, MIN_POLL_MS))
+        ? setInterval(() => {
+            if (AppState.currentState !== 'background') tick();
+          }, Math.max(intervalMs, MIN_POLL_MS))
         : null;
 
     const appStateSub = AppState.addEventListener('change', (state) => {
@@ -393,6 +432,7 @@ export function useSupportThreads({
   return {
     threads,
     totalUnread,
+    newSince,
     loading,
     refreshing,
     errorKey,

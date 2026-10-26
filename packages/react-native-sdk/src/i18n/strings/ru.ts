@@ -9,6 +9,7 @@ export const ru: StringTable = {
   'home.empty': 'Пока нет разговоров',
   'home.emptyHint':
     'Всё, что вы отправите, попадёт к команде, а ответы вернутся в это окно.',
+  'home.replyTime': 'Отвечаем в течение 24 часов',
   'home.noMessages': 'Пока нет сообщений',
   'home.you': 'Вы',
   'home.threadA11y': 'Разговор: {type}',
@@ -44,6 +45,7 @@ export const ru: StringTable = {
   'thread.readOnly': 'Этот разговор решён и доступен только для чтения',
   'thread.placeholder': 'Напишите ответ…',
   'chat.placeholder': 'Напишите сообщение…',
+  'chat.notSent': 'Не отправлено · Нажмите, чтобы повторить',
   'review.appStore': 'Оценить в App Store',
   'review.playStore': 'Оценить в Google Play',
   'thread.sendA11y': 'Отправить ответ',

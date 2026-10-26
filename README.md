@@ -176,7 +176,7 @@ import { SupportButton } from '@appsupportkit/support-sdk';
 
 Peer dependencies: `react`, `react-native`, `react-native-safe-area-context`. The bottom sheet is built on the core `Modal`/`Animated` APIs — no gesture-handler/reanimated native dependencies to install.
 
-The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens the support chat: one continuous conversation with a composer that is always open, up to 1,000 characters a message.
+The launcher shows an unread badge (admin replies newer than the user's read receipt) and opens the support chat: one continuous conversation with a composer that is always open, up to 1,000 characters a message. A message shows in the chat the moment it's sent and the composer is free for the next one straight away; messages go out one at a time in the order written. One that can't go stays in place marked *Not sent · Tap to retry*, with the reason under the composer, and survives the sheet closing. Before the first message, the empty chat tells the user *We reply within 24 hours* — a promise your team has to keep.
 
 ### One chat, many conversations
 
@@ -236,6 +236,8 @@ That carries three rules worth knowing when reading `useSupportThreads.ts`:
 
 Replies that arrive while the chat is on screen are marked read on arrival, so the badge never climbs while the user is reading. Nothing is marked read while the first-run language prompt covers the chat.
 
+The chat's *New* divider is fixed as the sheet opens, from the badge the user tapped, before anything is marked read. It is a timestamp rather than a count, so replies arriving while the user reads join the block below it instead of pushing it down.
+
 ### Refresh cadence
 
 Polling adapts to what the user is looking at, so latency is low where it's felt and cheap where it isn't:
@@ -244,10 +246,12 @@ Polling adapts to what the user is looking at, so latency is low where it's felt
 | --- | --- | --- |
 | Chat on screen | 5s | `get-threads` |
 | Sheet open (language picker) | 15s | `get-threads` |
-| Sheet closed (idle) | `pollIntervalMs`, default 60s | `get-unread-count` (~18 bytes) |
+| Sheet closed (idle) | `pollIntervalMs`, default 10s | `get-unread-count` (~18 bytes) |
+| Sheet closed, count moved | right after that tick | `get-threads`, so the chat opens with the new replies already loaded |
 | Sheet closed, receipt unconfirmed | as above | `get-threads` (until the receipt lands) |
+| Support push arrives, app open | immediately | `get-threads` |
 
-It also refreshes on mount, whenever the sheet opens, and whenever the app returns to the foreground. Set `pollIntervalMs={0}` to disable idle polling.
+It also refreshes on mount, whenever the sheet opens, and whenever the app returns to the foreground. Polling skips its ticks while the app is in the background — nobody can see the badge there, and the foreground refresh catches up. Set `pollIntervalMs={0}` to disable idle polling; the event-driven refreshes above still happen.
 
 ### Push notifications (optional)
 
@@ -259,7 +263,7 @@ npx expo install expo-notifications
 
 Skip it and everything else works unchanged — the SDK detects its absence at runtime and never calls it. **A user who denies permission keeps full use of every feature**; the outcome is recorded only so the dashboard can show whether they're reachable, displayed on the thread panel as *Push on* / *Push denied* / *Push not asked*.
 
-Tapping a support-reply notification opens the sheet straight into that thread — from the background or a cold start, no host code needed. If the launcher isn't mounted when the tap arrives (it lives behind sign-in, or on a settings screen), the thread opens when it mounts, provided that's within a minute; after that the tap is dropped rather than popping the sheet open unprompted later. With several launchers mounted, the most recently mounted one takes it.
+A support reply that arrives while the app is open refreshes the badge at once rather than on the next poll. Tapping a support-reply notification opens the sheet straight into that thread — from the background or a cold start, no host code needed. If the launcher isn't mounted when the tap arrives (it lives behind sign-in, or on a settings screen), the thread opens when it mounts, provided that's within a minute; after that the tap is dropped rather than popping the sheet open unprompted later. With several launchers mounted, the most recently mounted one takes it.
 
 Push tokens require a development or production build — `getExpoPushTokenAsync` cannot mint one in Expo Go. A granted permission with no token is recorded as such and shown distinctly on hover in the dashboard.
 

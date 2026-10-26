@@ -12,15 +12,18 @@
 
 import type { PushPermissionStatus } from './types';
 
+/** The slice of a Notification this SDK reads. */
+interface PushNotification {
+  request: {
+    identifier: string;
+    content: { data?: Record<string, unknown> | null };
+  };
+}
+
 /** The slice of a NotificationResponse that tap handling reads. */
 interface NotificationResponse {
   actionIdentifier: string;
-  notification: {
-    request: {
-      identifier: string;
-      content: { data?: Record<string, unknown> | null };
-    };
-  };
+  notification: PushNotification;
 }
 
 /** The slice of expo-notifications this SDK uses. */
@@ -32,6 +35,9 @@ interface ExpoNotificationsModule {
   }): Promise<{ data: string }>;
   addNotificationResponseReceivedListener(
     listener: (response: NotificationResponse) => void,
+  ): { remove(): void };
+  addNotificationReceivedListener(
+    listener: (notification: PushNotification) => void,
   ): { remove(): void };
   getLastNotificationResponseAsync(): Promise<NotificationResponse | null>;
   DEFAULT_ACTION_IDENTIFIER?: string;
@@ -139,12 +145,17 @@ let pendingTap: { threadId: string; at: number } | null = null;
 // process. Each tap is handled once.
 const handledTaps = new Set<string>();
 
+/** The thread a support-reply push is about, or null for any other push. */
+function supportReplyQueryId(notification: PushNotification): string | null {
+  const data = notification?.request?.content?.data;
+  if (data?.type !== 'support_reply') return null;
+  return typeof data.query_id === 'string' ? data.query_id : null;
+}
+
 function supportReplyThreadId(response: NotificationResponse): string | null {
   const defaultAction = notifications?.DEFAULT_ACTION_IDENTIFIER;
   if (defaultAction && response.actionIdentifier !== defaultAction) return null;
-  const data = response.notification?.request?.content?.data;
-  if (data?.type !== 'support_reply') return null;
-  return typeof data.query_id === 'string' ? data.query_id : null;
+  return supportReplyQueryId(response.notification);
 }
 
 function handleResponse(response: NotificationResponse | null) {
@@ -191,5 +202,44 @@ export function onSupportNotificationTap(
   return () => {
     const index = tapListeners.lastIndexOf(listener);
     if (index !== -1) tapListeners.splice(index, 1);
+  };
+}
+
+// ---------- refreshing when a reply arrives in the foreground ----------
+//
+// With the app open, the notification lands at once but the badge would
+// otherwise wait for the next poll — up to a minute on the idle cadence.
+// Every mounted launcher hears about it, not just the newest: each keeps
+// its own unread state. The OS only reports arrivals while the app is
+// running; a reply that lands in the background is picked up by the
+// foreground refresh instead.
+
+type SupportReplyListener = () => void;
+
+const replyListeners = new Set<SupportReplyListener>();
+
+function handleReceived(notification: PushNotification) {
+  if (supportReplyQueryId(notification) === null) return;
+  for (const listener of replyListeners) listener();
+}
+
+if (notifications) {
+  try {
+    notifications.addNotificationReceivedListener(handleReceived);
+  } catch {
+    // Tap handling above is unaffected; the badge just waits for a poll.
+  }
+}
+
+/**
+ * Calls `listener` whenever a support-reply notification arrives while the
+ * app is running. Returns an unsubscribe function.
+ */
+export function onSupportNotificationReceived(
+  listener: SupportReplyListener,
+): () => void {
+  replyListeners.add(listener);
+  return () => {
+    replyListeners.delete(listener);
   };
 }

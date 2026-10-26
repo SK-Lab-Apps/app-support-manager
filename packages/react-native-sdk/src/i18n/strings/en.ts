@@ -21,6 +21,7 @@ export const en = {
   'home.empty': 'No conversations yet',
   'home.emptyHint':
     'Anything you send lands with the team, and their replies come back to this sheet.',
+  'home.replyTime': 'We reply within 24 hours',
   'home.noMessages': 'No messages yet',
   'home.you': 'You',
   'home.threadA11y': '{type} thread',
@@ -56,6 +57,7 @@ export const en = {
   'thread.readOnly': 'This conversation is resolved and read-only',
   'thread.placeholder': 'Write a reply…',
   'chat.placeholder': 'Write a message…',
+  'chat.notSent': 'Not sent · Tap to retry',
   'review.appStore': 'Rate on the App Store',
   'review.playStore': 'Rate on Google Play',
   'thread.sendA11y': 'Send reply',
