@@ -54,8 +54,15 @@ function SidebarNav({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 shrink-0 items-center gap-2 px-3 coarse:h-14">
         <LogoTile size={20} />
-        <span className="truncate text-sm font-semibold tracking-heading">
-          Support
+        {/* The full name doesn't fit the narrowest sidebar on one line, so
+            the descriptor sits under the name. */}
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-sm font-semibold tracking-heading">
+            Nexus
+          </span>
+          <span className="truncate text-2xs text-tertiary">
+            In-app Chat Support
+          </span>
         </span>
       </div>
 

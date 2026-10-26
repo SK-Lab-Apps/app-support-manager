@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Support',
+  title: 'Nexus - In-app Chat Support',
   description: 'Customer support for mobile apps',
 };
 
