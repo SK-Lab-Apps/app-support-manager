@@ -131,7 +131,7 @@ The new key is shown once, like at registration. Only one old key is kept: rotat
 
 Each app has **Inbox**, **Users** and **Sent** tabs.
 
-- **Users** lists the app's users — name, plan (PRO, Trial, Free), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them.
+- **Users** lists the app's paying and trial users — name, plan (PRO or Trial), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them. Free users aren't stored: they're never messaged first, and a user whose trial or subscription lapses leaves the list the next time the SDK reports them. Their conversations stay in the inbox like anyone's.
 - The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps.
 - Each user gets the message as a new conversation in their support chat, translated into their language: the template is translated once per language with the placeholders intact, then filled in. A language that fails to translate is sent in English and picked up by the translation sweep.
 - These conversations stay out of the inbox, the open counts and the response-time stats until the user replies; then they appear like any other.
@@ -139,6 +139,10 @@ Each app has **Inbox**, **Users** and **Sent** tabs.
 - **Sent** lists each send with its audience, how many read it, and how many replied.
 
 The send runs in `send-outreach` (admin JWT), and the conversation, first message and broadcast record for every recipient are written in one transaction (`create_outreach`), so a failure part-way sends nothing.
+
+### Deleting conversations
+
+Tick conversations in an app's inbox (or all shown, with the header box) and **Delete**. After a confirmation they're removed in one transaction (`delete_conversations`), each with all its messages — from the dashboard and from the user's support chat in the app alike. There's no undo.
 
 ### Review requests
 
@@ -184,7 +188,7 @@ The user sees a single chat. The dashboard still works in conversations it can r
 
 `plan` is what the team filters and messages users by. With RevenueCat: `"trial"` when the active entitlement's `periodType` is `TRIAL`, `"pro"` when it is active otherwise, `"free"` without one. `isPaid` is still accepted (true reads as `"pro"`) but can't say `"trial"`.
 
-The SDK reports the user (name, plan, app version) on every load through `register-user`, so the dashboard's Users tab lists them before they ever open support, and it refreshes their push token then if notifications are already allowed — it never prompts outside the sheet.
+The SDK reports the user (name, plan, app version) on every load through `register-user`, so the dashboard's Users tab lists paying and trial users before they ever open support, and it refreshes their push token then if notifications are already allowed — it never prompts outside the sheet. A free user is acknowledged but not stored, and their push token is only registered once they open support.
 
 ### Compatibility with SDKs before 0.4
 
@@ -296,7 +300,7 @@ Edge Functions run on Deno and are excluded from the Node toolchain; check them 
 - **Edge Functions**: validate the `x-api-key` header by SHA-256 hash against `apps.api_key_hash` (or `previous_api_key_hash` while a rotation's grace period lasts), verify the claimed `app_name` matches that key, and scope every read/write to that app + `revenuecat_id`.
 - **Admins**: any row in `admins` matching `auth.uid()` gets select/insert/update via RLS. No roles, no signup. Messages are the exception: an admin can only insert a reply as themself (`sender = 'admin'`, `admin_id = auth.uid()`, no translation of their own), and can't update messages at all — translations are written by the Edge Functions.
 - **Review receipts**: a message's `review_opened_at` is written only by `review-opened` (service role), scoped to the app and `revenuecat_id` that own the request; admins can send review requests but can't set the receipt.
-- **No deletes**: no DELETE policies exist for anyone — queries and messages are an immutable audit trail. The one exception is message templates, which admins can delete.
+- **Deletes**: admins can delete whole conversations — each goes with its messages, read receipts and escalation records (`ON DELETE CASCADE`), and disappears from the user's chat too. Individual messages can't be deleted or edited by anyone through the API. Message templates are the only other thing admins can delete.
 - **Char limits**: messages 1–1000 characters — enforced in the clients, in the Edge Functions, and by a CHECK constraint. SDKs before 0.4 still hold users to 10–300 on the device.
 - **Push status**: `push_subscriptions` is written only by the `register-push` function (service role) and readable only by admins. `send-push` is the single staff-facing function — it requires an admin JWT, not an API key, and verifies membership in `admins` before sending.
 - **Rate limits**: the write endpoints enforce Postgres-backed fixed windows — per user, 5 new conversations and 30 messages per hour; per app, 500 writes per hour (blast-radius cap if a key leaks). `register-user` runs on every launch, so it has its own per-user cap (60/hour) and doesn't count against the app's. Blocked requests get a 429 with `Retry-After`; the SDK shows "Too many requests — try again later" inline. Limits live in `supabase/functions/_shared/rate-limit.ts`.

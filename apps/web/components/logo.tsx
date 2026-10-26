@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
  * The product mark: two overlapping speech bubbles, the front one cut free
  * of the back by a gap. Same 24-unit geometry as the SDK launcher's
  * ConversationMark (packages/react-native-sdk/src/components/icons.tsx) and
- * app/icon.svg — change all three together.
+ * app/icon.svg — change all three together (and regenerate
+ * app/apple-icon.png).
  *
  * The gap is drawn, not masked: `holeClassName` fills it, so give it the
  * color behind the mark.
@@ -42,12 +43,16 @@ export function LogoMark({
   );
 }
 
-/** The mark on an accent tile — the app-icon form used in the sidebar and on sign-in. */
+/**
+ * The mark on its orange tile — the app-icon form used in the sidebar and on
+ * sign-in. The orange is the brand's, not the UI accent, and the same in
+ * both themes, as in app/icon.svg and app/apple-icon.png.
+ */
 export function LogoTile({ size, className }: { size: number; className?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center bg-accent',
+        'inline-flex shrink-0 items-center justify-center bg-[#EA580C]',
         className,
       )}
       style={{
@@ -59,8 +64,8 @@ export function LogoTile({ size, className }: { size: number; className?: string
       {/* The same inset as app/icon.svg: 4.25 of 24 units on each side. */}
       <LogoMark
         size={size * (15.5 / 24)}
-        className="fill-accent-fg"
-        holeClassName="fill-accent"
+        className="fill-white"
+        holeClassName="fill-[#EA580C]"
       />
     </span>
   );

@@ -2,7 +2,8 @@
 // Records the current user in the app's directory (SDK 0.4+, on every load):
 // who they are, their plan, their app version. This is what lets the
 // dashboard list an app's users and message them first, before they ever
-// open support.
+// open support. Paying and trial users only: a free user is acknowledged and
+// not stored.
 // Auth: x-api-key header (per app) + app_name must match the key's app.
 //
 // Rate limited per user only. It runs on every launch, so counting it
@@ -49,6 +50,21 @@ Deno.serve(async (req) => {
   const app = await authenticateApp(req, supabase, body.app_name);
   if (!app) return errorResponse('Invalid API key', 401);
 
+  const user = {
+    name: body.user.name,
+    plan: body.user.plan,
+    appVersion: body.user.app_version,
+    sdkVersion: sdkVersion(req),
+    platform: body.user.platform,
+  };
+
+  // Free users aren't kept in the directory, so there is nothing to throttle
+  // — and no per-user counter row worth writing for every one of them.
+  if (user.plan === 'free') {
+    await touchAppUser(supabase, app.id, body.revenuecat_id, user);
+    return json({ ok: true });
+  }
+
   const limited = await enforceRateLimit(supabase, [
     {
       key: `ru:${app.id}:${body.revenuecat_id}`,
@@ -58,13 +74,7 @@ Deno.serve(async (req) => {
   ]);
   if (limited) return limited;
 
-  await touchAppUser(supabase, app.id, body.revenuecat_id, {
-    name: body.user.name,
-    plan: body.user.plan,
-    appVersion: body.user.app_version,
-    sdkVersion: sdkVersion(req),
-    platform: body.user.platform,
-  });
+  await touchAppUser(supabase, app.id, body.revenuecat_id, user);
 
   return json({ ok: true });
 });

@@ -54,6 +54,7 @@ export function OutreachComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [sendPush, setSendPush] = useState(false);
@@ -66,11 +67,15 @@ export function OutreachComposer({
 
   useEffect(() => {
     if (!open) return;
+    setTemplatesLoaded(false);
     void supabase
       .from("message_templates")
       .select("*")
       .order("name")
-      .then(({ data }) => setTemplates((data ?? []) as MessageTemplate[]));
+      .then(({ data }) => {
+        setTemplates((data ?? []) as MessageTemplate[]);
+        setTemplatesLoaded(true);
+      });
   }, [open, supabase]);
 
   const template = templates.find((t) => t.id === templateId) ?? null;
@@ -252,10 +257,15 @@ export function OutreachComposer({
                 aria-label="Template"
                 value={templateId ?? ""}
                 onChange={(e) => pickTemplate(e.target.value)}
-                className="h-8 min-w-0 flex-1 rounded-control border border-border bg-surface px-2 text-sm text-primary coarse:h-[44px] coarse:text-input"
+                disabled={!templatesLoaded}
+                className="h-8 min-w-0 flex-1 rounded-control border border-border bg-surface px-2 text-sm text-primary disabled:text-tertiary coarse:h-[44px] coarse:text-input"
               >
                 <option value="">
-                  {templates.length === 0 ? "No templates yet" : "No template"}
+                  {!templatesLoaded
+                    ? "Loading templates…"
+                    : templates.length === 0
+                      ? "No templates yet"
+                      : "No template"}
                 </option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>

@@ -54,8 +54,11 @@ interface ReviewTarget {
   store: StoreListing;
   /** Null for SDKs before 0.4, which don't report it. */
   platform: StorePlatform | null;
-  /** False when the user's SDK predates review buttons (shows text only). */
-  rendersButton: boolean;
+  /**
+   * False when the user's SDK predates review buttons (shows text only);
+   * null when we can't tell — free users aren't in the directory.
+   */
+  rendersButton: boolean | null;
 }
 
 function storeLabel(platform: StorePlatform | null): string {
@@ -93,9 +96,11 @@ export function ThreadPanel({
   // When the end user last opened this thread (their read receipt, written
   // by the mark-read edge function). Powers the "Seen" marker.
   const [userLastReadAt, setUserLastReadAt] = useState<string | null>(null);
-  // Whether this user can be reached by push (null = never reported).
-  const [pushSubscription, setPushSubscription] =
-    useState<PushSubscriptionRow | null>(null);
+  // Whether this user can be reached by push (null = never reported,
+  // undefined = still loading).
+  const [pushSubscription, setPushSubscription] = useState<
+    PushSubscriptionRow | null | undefined
+  >(undefined);
   const [loadError, setLoadError] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -191,7 +196,7 @@ export function ThreadPanel({
         play_store_package: app?.play_store_package ?? null,
       },
       platform: (user?.platform as StorePlatform | null) ?? null,
-      rendersButton: Boolean(user?.sdk_version),
+      rendersButton: user ? Boolean(user.sdk_version) : null,
     });
   }, [supabase, row.app_id, row.revenuecat_id]);
 
@@ -296,11 +301,14 @@ export function ThreadPanel({
     return false;
   }, [messages]);
 
-  const reviewBlocked = !storeReady(reviewTarget)
-    ? "Add this app's store listing first (the star in the app's header)"
-    : askedSinceUserWrote
-      ? "Already asked — wait until they write again"
-      : null;
+  const reviewBlocked =
+    reviewTarget === null
+      ? "Checking the store listing…"
+      : !storeReady(reviewTarget)
+        ? "Add this app's store listing first (the star in the app's header)"
+        : askedSinceUserWrote
+          ? "Already asked — wait until they write again"
+          : null;
 
   function toggleReviewMode() {
     const next = !reviewMode;
@@ -332,15 +340,17 @@ export function ThreadPanel({
       })
       .select("id")
       .single();
-    setSending(false);
 
     if (error || !inserted) {
+      setSending(false);
       setSendError(true);
       return;
     }
     setDraft("");
     setReviewMode(false);
+    // Still "Sending…" until the reply is on screen.
     await fetchMessages();
+    setSending(false);
     onChanged();
     // Translate first, then notify: the push copy is localized either way,
     // but a user who taps it should land on a thread that already reads in
@@ -387,9 +397,18 @@ export function ThreadPanel({
           : { status: "open", resolved_at: null, resolved_by: null },
       )
       .eq("id", row.id);
-    setUpdatingStatus(false);
-    if (!error) onChanged();
+    if (error) {
+      setUpdatingStatus(false);
+      return;
+    }
+    onChanged();
   }
+
+  // The new status arrives with the refetched row; until then the button
+  // keeps saying what it's doing rather than flipping back for a moment.
+  useEffect(() => {
+    setUpdatingStatus(false);
+  }, [row.status]);
 
   return (
     <aside
@@ -423,7 +442,7 @@ export function ThreadPanel({
                 onClick={() => void setStatus("open")}
                 disabled={updatingStatus}
               >
-                Reopen
+                {updatingStatus ? "Reopening…" : "Reopen"}
               </Button>
             ) : (
               <Button
@@ -432,7 +451,7 @@ export function ThreadPanel({
                 onClick={() => void setStatus("resolved")}
                 disabled={updatingStatus}
               >
-                Resolve
+                {updatingStatus ? "Resolving…" : "Resolve"}
               </Button>
             )}
             <IconButton onClick={onClose} aria-label="Close thread">
@@ -449,7 +468,11 @@ export function ThreadPanel({
           {translating && row.user_language && (
             <LanguageChip language={row.user_language} />
           )}
-          <PushStatusChip subscription={pushSubscription} />
+          {pushSubscription === undefined ? (
+            <Skeleton className="h-4 w-20" />
+          ) : (
+            <PushStatusChip subscription={pushSubscription} />
+          )}
           {row.initiated_by === "admin" && (
             <span title="This conversation began with a message sent from the Users tab">
               Started by us
@@ -624,7 +647,7 @@ export function ThreadPanel({
               <p className="text-2xs leading-relaxed text-secondary">
                 Adds a &ldquo;{storeLabel(reviewTarget?.platform ?? null)}&rdquo;
                 button under your message.{" "}
-                {reviewTarget && !reviewTarget.rendersButton
+                {reviewTarget?.rendersButton === false
                   ? "This user's app version shows the text without the button. "
                   : ""}
                 Don&apos;t offer anything in exchange — Apple and Google

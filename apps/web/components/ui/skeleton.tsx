@@ -12,6 +12,32 @@ export function Skeleton({ className }: { className?: string }) {
 }
 
 /**
+ * A view's search-and-filters toolbar while its route loads — the same band
+ * height as the real one, so nothing shifts when it arrives.
+ */
+export function ToolbarSkeleton({
+  filters,
+  searchEnd = false,
+}: {
+  filters: number;
+  /** The inbox keeps search at the right from sm up. */
+  searchEnd?: boolean;
+}) {
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 md:px-4">
+      <Skeleton
+        className={cn('h-7 w-full sm:w-56 coarse:h-[38px]', searchEnd && 'sm:ml-auto')}
+      />
+      <div className="flex w-full gap-2 overflow-hidden sm:w-auto">
+        {Array.from({ length: filters }).map((_, i) => (
+          <Skeleton key={i} className="h-7 w-[88px] shrink-0 coarse:h-[38px]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Placeholder rows matching the query list's real dimensions — the table's
  * columns from sm up, the card stack below it.
  */

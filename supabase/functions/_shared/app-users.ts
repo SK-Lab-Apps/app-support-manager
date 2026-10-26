@@ -1,5 +1,6 @@
-// The app_users directory: who each app's users are and which plan they're
-// on, for the dashboard's Users tab and messages we send first.
+// The app_users directory: who each app's paying and trial users are and
+// which plan they're on, for the dashboard's Users tab and messages we send
+// first. Free users aren't kept — their conversations are, like anyone's.
 
 import { z } from 'npm:zod@3.23.8';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -22,9 +23,11 @@ export function planFromIsPaid(isPaid: boolean): UserPlan {
 }
 
 /**
- * Records that this user was just seen, with whatever was reported. Fields
- * left undefined keep their stored value; first_seen_at is set only on
- * insert. Best effort — the directory must never fail a user's request.
+ * Records that this user was just seen, with whatever was reported. A free
+ * user isn't stored, and one whose trial or subscription lapsed leaves the
+ * directory. Fields left undefined keep their stored value; first_seen_at is
+ * set only on insert. Best effort — the directory must never fail a user's
+ * request.
  */
 export async function touchAppUser(
   supabase: SupabaseClient,
@@ -32,19 +35,29 @@ export async function touchAppUser(
   revenuecatId: string,
   fields: {
     name?: string;
-    plan?: UserPlan;
+    plan: UserPlan;
     appVersion?: string;
     sdkVersion?: string | null;
     platform?: 'ios' | 'android';
   },
 ): Promise<void> {
+  if (fields.plan === 'free') {
+    const { error } = await supabase
+      .from('app_users')
+      .delete()
+      .eq('app_id', appId)
+      .eq('revenuecat_id', revenuecatId);
+    if (error) console.error('app-users: delete failed', error);
+    return;
+  }
+
   const row: Record<string, unknown> = {
     app_id: appId,
     revenuecat_id: revenuecatId,
+    plan: fields.plan,
     last_seen_at: new Date().toISOString(),
   };
   if (fields.name !== undefined) row.name = fields.name;
-  if (fields.plan !== undefined) row.plan = fields.plan;
   if (fields.appVersion !== undefined) row.app_version = fields.appVersion;
   if (fields.sdkVersion) row.sdk_version = fields.sdkVersion;
   if (fields.platform !== undefined) row.platform = fields.platform;

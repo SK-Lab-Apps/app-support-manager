@@ -97,10 +97,16 @@ const config: Config = {
           from: { transform: 'translate3d(-100%, 0, 0)' },
           to: { transform: 'translate3d(0, 0, 0)' },
         },
+        /** A third-width bar crossing its track, entering and leaving off-edge. */
+        'loading-bar': {
+          from: { transform: 'translate3d(-100%, 0, 0)' },
+          to: { transform: 'translate3d(300%, 0, 0)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 150ms cubic-bezier(0, 0, 0.2, 1)',
         'slide-in-left': 'slide-in-left 180ms cubic-bezier(0, 0, 0.2, 1)',
+        'loading-bar': 'loading-bar 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite',
       },
     },
   },

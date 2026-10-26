@@ -13,5 +13,5 @@ export default async function AppInboxPage({
   } = await supabase.auth.getUser();
 
   // The layout has already checked the app exists and shows its name.
-  return <QueryDashboard appId={appId} title={null} adminId={user?.id ?? ''} />;
+  return <QueryDashboard appId={appId} adminId={user?.id ?? ''} />;
 }

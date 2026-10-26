@@ -156,7 +156,8 @@ export function SupportButton(props: SupportButtonProps) {
    * Reports the user on load, and whenever who they are changes, so the team
    * can find and message them before they ever open support. Refreshes the
    * push token too when permission was already granted — never prompting:
-   * the OS prompt only appears once the user opens support.
+   * the OS prompt only appears once the user opens support. Free users
+   * aren't messaged first, so their token waits until they open support.
    */
   useEffect(() => {
     if (validationError !== null) return;
@@ -166,7 +167,7 @@ export function SupportButton(props: SupportButtonProps) {
     }).catch(() => {
       // Best effort; the next load reports again.
     });
-    if (!isPushAvailable) return;
+    if (!isPushAvailable || plan === 'free') return;
     void (async () => {
       const registration = await ensurePushPermission(props.expoProjectId, {
         prompt: false,

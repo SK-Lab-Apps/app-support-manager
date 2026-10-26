@@ -1,6 +1,6 @@
 'use client';
 
-import { Inbox, LogOut, Menu, X } from 'lucide-react';
+import { Inbox, Loader2, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -24,7 +24,8 @@ function SidebarNav({
   const pathname = usePathname();
 
   const item = (href: string, label: string, count?: number) => {
-    const active = pathname === href;
+    // An app stays highlighted on its Users and Sent tabs too.
+    const active = pathname === href || pathname.startsWith(`${href}/`);
     return (
       <Link
         key={href}
@@ -63,11 +64,6 @@ function SidebarNav({
           Apps
         </p>
         <div className="flex flex-col gap-px">
-          {item(
-            '/',
-            'All apps',
-            apps.reduce((sum, a) => sum + a.open_count, 0),
-          )}
           {apps.map((app) => item(`/apps/${app.id}`, app.name, app.open_count))}
         </div>
         {apps.length === 0 && (
@@ -95,6 +91,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const pathname = usePathname();
   const drawerRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -126,6 +123,7 @@ export function AppShell({
   }, [drawerOpen]);
 
   async function signOut() {
+    setSigningOut(true);
     await createClient().auth.signOut();
     window.location.assign('/login');
   }
@@ -190,8 +188,17 @@ export function AppShell({
             <span className="ml-1 hidden min-w-0 truncate text-sm text-secondary sm:block">
               {admin.display_name}
             </span>
-            <IconButton onClick={signOut} aria-label="Sign out" title="Sign out">
-              <LogOut size={15} strokeWidth={1.5} />
+            <IconButton
+              onClick={signOut}
+              disabled={signingOut}
+              aria-label={signingOut ? 'Signing out' : 'Sign out'}
+              title="Sign out"
+            >
+              {signingOut ? (
+                <Loader2 size={15} strokeWidth={1.5} className="animate-spin" />
+              ) : (
+                <LogOut size={15} strokeWidth={1.5} />
+              )}
             </IconButton>
           </div>
         </header>
