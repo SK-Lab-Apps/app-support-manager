@@ -78,7 +78,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Translation | Without it, messages are stored and delivered untranslated and the dashboard shows a retry. |
 | `TRANSLATION_MODEL` | — | Defaults to `gpt-5.6-luna`. Set it to trade cost for quality without redeploying. |
-| `RESEND_API_KEY`, `ESCALATION_CRON_TOKEN`, `DASHBOARD_URL` | Unread escalation | See the escalation section. `ESCALATION_CRON_TOKEN` also authenticates the translation sweep. |
+| `RESEND_API_KEY`, `ESCALATION_FROM`, `ESCALATION_CRON_TOKEN`, `DASHBOARD_URL` | Unread escalation | See the escalation section. `ESCALATION_CRON_TOKEN` also authenticates the translation sweep. |
 | `REVENUECAT_WEBHOOK_SECRET` | Cancelled plans | Any long random string. RevenueCat sends it with each event; see the cancellations section. |
 
 ## Multilingual support
@@ -178,6 +178,37 @@ Set up once, then once per app:
 3. **Send test event** should come back 200.
 
 Users are matched by RevenueCat app user id (and its aliases), which is why the SDK's `revenuecatId` should be RevenueCat's own. Someone not in the Users tab — free, or never seen by SDK 0.4+ — is skipped.
+
+### Unread escalation
+
+A user message no admin has read 5 hours after it was sent is emailed to every admin, one email per conversation. A `pg_cron` job checks every 5 minutes, so it goes out between 5h00 and 5h05. Opening the conversation in the dashboard, or resolving it, cancels it. Each message is emailed once; one that Resend refuses is tried again on the next check.
+
+Set up once:
+
+1. In Resend, add and verify a sending domain (**Domains → Add domain**, then its DNS records) and create an API key.
+2. Set the secrets and deploy:
+   ```sh
+   supabase secrets set RESEND_API_KEY=re_... ESCALATION_CRON_TOKEN=<long random string> DASHBOARD_URL=https://<your dashboard>
+   supabase secrets set ESCALATION_FROM="Support <alerts@yourdomain.com>"
+   supabase functions deploy escalate-unread
+   ```
+3. Give the cron job the project URL and the same token (SQL editor):
+   ```sql
+   select vault.create_secret('https://<project-ref>.supabase.co', 'project_url');
+   select vault.create_secret('<the same token>', 'escalation_cron_token');
+   ```
+
+`ESCALATION_FROM` must be an address on the verified domain. Without it, mail goes from Resend's test sender, `onboarding@resend.dev`, which only delivers to the Resend account owner — and all admins are on one email, so a single other admin gets the whole email refused. An API key restricted to your domain refuses the test sender outright. A refusal shows in the function's logs and in Resend's, nowhere else.
+
+To see what would be sent without sending it:
+
+```sh
+curl -X POST https://<project-ref>.supabase.co/functions/v1/escalate-unread \
+  -H "Authorization: Bearer <ESCALATION_CRON_TOKEN>" -H "Content-Type: application/json" \
+  -d '{"dry_run": true, "threshold_minutes": 1}'
+```
+
+It returns the recipients and each email. Without `dry_run` it sends them.
 
 ## Using the SDK
 
