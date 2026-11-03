@@ -1,8 +1,11 @@
-// Message templates for sends from the dashboard's Users tab: {first_name},
-// {name} and {app}, filled in per recipient.
+// Message templates for sends from the dashboard's Users tab and for
+// automated messages: {first_name}, {name} and {app}, filled in per
+// recipient.
 //
-// Mirrored in apps/web/lib/outreach.ts for the composer's preview; keep the
-// two in step.
+// The render rules are mirrored in apps/web/lib/outreach.ts for the
+// composer's preview; keep the two in step.
+
+import { translateText } from './translate.ts';
 
 const PLACEHOLDER = /\{(first_name|name|app)\}/g;
 
@@ -37,4 +40,34 @@ export function valuesFor(name: string | null, app: string): TemplateValues {
     first_name: trimmed ? trimmed.split(/\s+/)[0]! : null,
     app,
   };
+}
+
+/**
+ * Translates a template once per language with its placeholders intact,
+ * to be filled in per recipient afterwards — one model call per language
+ * rather than per user. Null for a language whose translation failed or
+ * came back with the placeholders mangled: those copies go out in English
+ * marked pending, for the translation sweep.
+ */
+export async function translateTemplate(
+  template: string,
+  languages: string[],
+): Promise<Map<string, string | null>> {
+  const expected = placeholdersIn(template);
+  const results = await Promise.all(
+    languages.map(async (language) => {
+      try {
+        const { translation } = await translateText(template, language);
+        if (placeholdersIn(translation) !== expected) {
+          console.error('templates: placeholders lost in', language);
+          return [language, null] as const;
+        }
+        return [language, translation] as const;
+      } catch (e) {
+        console.error('templates: translation failed for', language, e);
+        return [language, null] as const;
+      }
+    }),
+  );
+  return new Map(results);
 }

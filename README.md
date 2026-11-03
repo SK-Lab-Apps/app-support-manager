@@ -41,6 +41,7 @@ supabase functions deploy register-user
 supabase functions deploy send-outreach
 supabase functions deploy review-opened
 supabase functions deploy revenuecat-webhook
+supabase functions deploy send-automations
 ```
 
 Translation needs an OpenAI API key ([platform.openai.com](https://platform.openai.com)):
@@ -78,7 +79,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Translation | Without it, messages are stored and delivered untranslated and the dashboard shows a retry. |
 | `TRANSLATION_MODEL` | — | Defaults to `gpt-5.6-luna`. Set it to trade cost for quality without redeploying. |
-| `RESEND_API_KEY`, `ESCALATION_FROM`, `ESCALATION_CRON_TOKEN`, `DASHBOARD_URL` | Unread escalation | See the escalation section. `ESCALATION_CRON_TOKEN` also authenticates the translation sweep. |
+| `RESEND_API_KEY`, `ESCALATION_FROM`, `ESCALATION_CRON_TOKEN`, `DASHBOARD_URL` | Unread escalation | See the escalation section. `ESCALATION_CRON_TOKEN` also authenticates the translation sweep and automated messages. |
 | `REVENUECAT_WEBHOOK_SECRET` | Cancelled plans | Any long random string. RevenueCat sends it with each event; see the cancellations section. |
 
 ## Multilingual support
@@ -131,14 +132,14 @@ The new key is shown once, like at registration. Only one old key is kept: rotat
 
 ### Messaging users first
 
-Each app has **Inbox**, **Users** and **Sent** tabs.
+Each app has **Inbox**, **Users**, **Sent** and **Automations** tabs.
 
 - **Users** lists the app's paying and trial users — name, plan (PRO, Trial, or either one cancelled), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them. Free users aren't stored: they're never messaged first, and a user whose trial or subscription lapses leaves the list the next time the SDK reports them. Their conversations stay in the inbox like anyone's.
 - The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps (see Templates below).
 - Each user gets the message as a new conversation in their support chat, translated into their language: the template is translated once per language with the placeholders intact, then filled in. A language that fails to translate is sent in English and picked up by the translation sweep.
 - These conversations stay out of the inbox, the open counts and the response-time stats until the user replies; then they appear like any other.
 - Push is a per-send choice, off by default — without it users see the badge on the support button. Apple's guidelines don't allow promotional pushes unless users opted in to them, so keep push for service messages.
-- **Sent** lists each send with its audience, how many read it, and how many replied. **Clear log** removes every send from the list, with its counts, in one transaction (`clear_sent_log`); the messages stay in users' chats, and a reply still reaches the inbox.
+- **Sent** lists each send — from the Users tab and from automations, filterable by which — with who it went to (the first three names, and **N more** to list everyone with who read and who replied), how many read it, and how many replied. A recipient whose conversation was deleted drops out of the names. **Clear log** removes every send for the app from the list, with its counts — the Automations tab's too — in one transaction (`clear_sent_log`); the messages stay in users' chats, and a reply still reaches the inbox.
 
 The send runs in `send-outreach` (admin JWT), and the conversation, first message and broadcast record for every recipient are written in one transaction (`create_outreach`), so a failure part-way sends nothing.
 
@@ -167,7 +168,7 @@ A reply can carry a **Rate on the App Store / Google Play** button: in a convers
 
 ### Cancellations
 
-A user who turns off auto-renew keeps their access until the period ends, so their app still reports them as Trial or PRO. RevenueCat's webhook marks them **Trial cancelled** or **PRO cancelled** as soon as they cancel, in the Users tab and the inbox, both filterable by it. Nothing is sent to them — reaching out is up to you. Turning auto-renew back on, renewing or buying again puts them back on Trial or PRO, and like anyone, they leave the Users tab once their app reports them free.
+A user who turns off auto-renew keeps their access until the period ends, so their app still reports them as Trial or PRO. RevenueCat's webhook marks them **Trial cancelled** or **PRO cancelled** as soon as they cancel, in the Users tab and the inbox, both filterable by it. Nothing is sent to them unless you set up a cancellation message under Automated messages below. Turning auto-renew back on, renewing or buying again puts them back on Trial or PRO, and like anyone, they leave the Users tab once their app reports them free.
 
 Set up once, then once per app:
 
@@ -177,7 +178,28 @@ Set up once, then once per app:
    - **Authorization header**: `Bearer <the same secret>`.
 3. **Send test event** should come back 200.
 
-Users are matched by RevenueCat app user id (and its aliases), which is why the SDK's `revenuecatId` should be RevenueCat's own. Someone not in the Users tab — free, or never seen by SDK 0.4+ — is skipped.
+Users are matched by RevenueCat app user id (and its aliases), which is why the SDK's `revenuecatId` should be RevenueCat's own. Someone not in the Users tab — free, or never seen by SDK 0.4+ — has no plan to mark.
+
+### Automated messages
+
+The **Automations** tab holds one message per subscription event, per app, sent a set time after RevenueCat reports the event for a user:
+
+| Event | When |
+| --- | --- |
+| Trial started | A user starts a free trial. |
+| Pro purchased | A user subscribes without a trial. |
+| Trial converted | A trial turns into a paid subscription. |
+| Trial cancelled | A user turns off auto-renew during their trial. |
+| Pro cancelled | A subscriber turns off auto-renew. |
+
+Add, edit, pause or delete each one. A message is a template — `{first_name}`, `{name}`, `{app}`, or start from a saved template — with a delay (15 minutes to a day; default 1 hour) and optional push. It goes out like a message from the Users tab: a new conversation in the user's support chat, translated into their language, under the name of whoever last edited it (users still only see the support team), out of the inbox until they reply, and in the Sent log. The tab shows how many went out, were read and got a reply, and how many are waiting.
+
+- **What triggers it** is the app's RevenueCat webhook (set up as in Cancellations above), so nothing is sent without it. Cancellations count only when the user chose to: not ones for a failed payment, a refund, or one you made yourself. A message waits for the delay from when the event happened, and RevenueCat delivering an event twice schedules it once.
+- **A later event cancels a waiting message it makes wrong**: turning auto-renew back on, renewing or buying again drops a waiting cancellation message; cancelling drops a waiting welcome; a trial converting drops its "trial started"; the subscription expiring drops all of them.
+- **Edits apply** to everyone it hasn't gone to yet, and a paused message skips anyone whose time comes while it's paused. Deleting one cancels what's waiting; what already went out stays.
+- **Users not in the Users tab yet** — a trial started before their app reported them — still get theirs, without a name filled in. They see it if the SDK's `revenuecatId` is their RevenueCat id.
+
+Set up once: deploy `send-automations` and push the migrations. A `pg_cron` job checks every minute and calls the function only when something is due, with the same vault secrets as unread escalation (`project_url`, `escalation_cron_token` — create them as described there if you haven't).
 
 ### Unread escalation
 

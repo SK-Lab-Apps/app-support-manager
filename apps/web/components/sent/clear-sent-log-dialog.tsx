@@ -61,10 +61,12 @@ export function ClearSentLogDialog({
           Clear the sent log?
         </DialogTitle>
         <DialogDescription className="mt-1 text-sm text-secondary">
-          Removes {count === 1 ? "the 1 send" : `all ${count} sends`} listed
-          here, with {count === 1 ? "its" : "their"} read and reply counts.
-          The messages stay in each user&apos;s support chat, and replies
-          still come to the inbox. This can&apos;t be undone.
+          Removes {count === 1 ? "the 1 send" : `all ${count} sends`} for
+          this app — from Users and automations alike — with{" "}
+          {count === 1 ? "its" : "their"} read and reply counts, including
+          the ones on the Automations tab. The messages stay in each
+          user&apos;s support chat, and replies still come to the inbox.
+          This can&apos;t be undone.
         </DialogDescription>
         {error && (
           <p role="alert" className="mt-3 text-xs text-status-danger">

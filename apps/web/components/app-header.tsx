@@ -1,6 +1,6 @@
 'use client';
 
-import { Inbox, Send, Users } from 'lucide-react';
+import { Inbox, Send, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,10 @@ const TABS = [
   { path: '', label: 'Inbox', icon: Inbox },
   { path: '/users', label: 'Users', icon: Users },
   { path: '/sent', label: 'Sent', icon: Send },
+  { path: '/automations', label: 'Automations', icon: Zap },
 ];
 
-/** App name, its key and store listing, and the Inbox / Users / Sent tabs. */
+/** App name, its key and store listing, and the app's tabs. */
 export function AppHeader({ appId, appName }: { appId: string; appName: string }) {
   const pathname = usePathname();
   const tabs = TABS.map((tab) => ({ ...tab, href: `/apps/${appId}${tab.path}` }));

@@ -20,19 +20,14 @@ import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/app-auth.ts';
 import type { StoredPlan } from '../_shared/app-users.ts';
 import { ADMIN_LANGUAGE, baseLanguage } from '../_shared/languages.ts';
-import {
-  translateInBackground,
-  translateText,
-} from '../_shared/translate.ts';
-import { placeholdersIn, render, valuesFor } from '../_shared/templates.ts';
+import { translateInBackground } from '../_shared/translate.ts';
+import { render, translateTemplate, valuesFor } from '../_shared/templates.ts';
+import { pushPreview, sendSupportPushes } from '../_shared/expo-push.ts';
 
-const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 const MAX_RECIPIENTS = 1000;
 const MESSAGE_MAX = 1000;
 /** PostgREST filters travel in the URL; keep `in.(…)` lists short. */
 const LOOKUP_CHUNK = 100;
-const EXPO_BATCH = 100;
-const PUSH_PREVIEW_MAX = 150;
 /** The rest wait for the translation sweep. */
 const BACKGROUND_TRANSLATIONS_MAX = 25;
 
@@ -113,36 +108,6 @@ async function loadRecipients(
     }
   }
   return recipients;
-}
-
-/** Template per language, or null where the copies go out pending. */
-async function translateTemplate(
-  template: string,
-  languages: string[],
-): Promise<Map<string, string | null>> {
-  const expected = placeholdersIn(template);
-  const results = await Promise.all(
-    languages.map(async (language) => {
-      try {
-        const { translation } = await translateText(template, language);
-        if (placeholdersIn(translation) !== expected) {
-          console.error('send-outreach: placeholders lost in', language);
-          return [language, null] as const;
-        }
-        return [language, translation] as const;
-      } catch (e) {
-        console.error('send-outreach: translation failed for', language, e);
-        return [language, null] as const;
-      }
-    }),
-  );
-  return new Map(results);
-}
-
-function preview(text: string): string {
-  return text.length > PUSH_PREVIEW_MAX
-    ? `${text.slice(0, PUSH_PREVIEW_MAX - 1).trimEnd()}…`
-    : text;
 }
 
 Deno.serve(async (req) => {
@@ -280,37 +245,18 @@ Deno.serve(async (req) => {
       if (messageId) translateInBackground(supabase, messageId);
     });
 
-  let pushed = 0;
-  if (input.send_push) {
-    const notifications = rows
-      .filter((row) => row.r.pushToken && byUser.has(row.r.revenuecat_id))
-      .map((row) => ({
-        to: row.r.pushToken!,
-        title: app.name,
-        body: preview(row.translatedBody ?? row.body),
-        sound: 'default',
-        // The SDK opens the chat on tap.
-        data: {
-          query_id: byUser.get(row.r.revenuecat_id)!.o_query_id,
-          type: 'support_reply',
-        },
-      }));
-    for (const batch of chunks(notifications, EXPO_BATCH)) {
-      try {
-        const response = await fetch(EXPO_PUSH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(batch),
-        });
-        const result = await response.json();
-        const tickets = Array.isArray(result?.data) ? result.data : [];
-        pushed += tickets.filter((t: { status?: string }) => t?.status === 'ok').length;
-      } catch (e) {
-        // The messages are delivered in the chat either way.
-        console.error('send-outreach: push batch failed', e);
-      }
-    }
-  }
+  const pushed = input.send_push
+    ? await sendSupportPushes(
+        rows
+          .filter((row) => row.r.pushToken && byUser.has(row.r.revenuecat_id))
+          .map((row) => ({
+            to: row.r.pushToken!,
+            title: app.name,
+            body: pushPreview(row.translatedBody ?? row.body),
+            queryId: byUser.get(row.r.revenuecat_id)!.o_query_id,
+          })),
+      )
+    : 0;
 
   return json({
     broadcast_id: broadcastId,

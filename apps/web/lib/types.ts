@@ -100,6 +100,47 @@ export interface BroadcastSummary {
   template_name: string | null;
   read_count: number;
   replied_count: number;
+  /** Recipients whose conversation is still there; at most recipient_count. */
+  recipient_listed: number;
+  /** The first few recipients by name; `broadcast_recipients` has them all. */
+  recipient_names: string[];
+  /** Set when an automation sent it rather than an admin. */
+  automation_event: AutomationEvent | null;
+}
+
+/** Row shape of the `broadcast_recipients` view. */
+export interface BroadcastRecipient {
+  query_id: string;
+  revenuecat_id: string;
+  user_name: string;
+  read: boolean;
+  replied: boolean;
+}
+
+/** The subscription moments, from RevenueCat, an automation can follow. */
+export type AutomationEvent =
+  | 'trial_started'
+  | 'pro_started'
+  | 'trial_converted'
+  | 'trial_cancelled'
+  | 'pro_cancelled';
+
+/** Row shape of the `automation_list` view. */
+export interface AutomationRow {
+  id: string;
+  app_id: string;
+  event: AutomationEvent;
+  body: string;
+  delay_minutes: number;
+  send_push: boolean;
+  enabled: boolean;
+  updated_at: string;
+  updated_by_name: string;
+  /** Scheduled for users and not sent yet. */
+  pending_count: number;
+  sent_count: number;
+  read_count: number;
+  replied_count: number;
 }
 
 export interface MessageRow {

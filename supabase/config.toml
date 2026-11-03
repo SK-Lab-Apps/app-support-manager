@@ -57,3 +57,8 @@ verify_jwt = false
 # (REVENUECAT_WEBHOOK_SECRET), which the function checks itself.
 [functions.revenuecat-webhook]
 verify_jwt = false
+
+# Machine-to-machine: invoked by the send-automations pg_cron job with the
+# shared cron token (ESCALATION_CRON_TOKEN), which the function checks itself.
+[functions.send-automations]
+verify_jwt = false
