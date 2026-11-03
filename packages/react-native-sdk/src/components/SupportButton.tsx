@@ -5,17 +5,11 @@ import {
   registerUser,
   reviewOpened,
   sendMessage,
-  setLanguage as setLanguageRequest,
   SupportApiError,
   type ApiConfig,
 } from '../api';
 import { createTranslator } from '../i18n';
-import {
-  asLanguage,
-  DEFAULT_LANGUAGE,
-  deviceLanguage,
-  type Language,
-} from '../i18n/languages';
+import { asLanguage, DEFAULT_LANGUAGE } from '../i18n/languages';
 import {
   ensurePushPermission,
   isPushAvailable,
@@ -30,9 +24,6 @@ import { userPlan, validateProps } from '../utils';
 import { BottomSheet } from './BottomSheet';
 import { LauncherButton } from './LauncherButton';
 import { ChatScreen } from './screens/ChatScreen';
-import { LanguageScreen } from './screens/LanguageScreen';
-
-type Screen = 'chat' | 'language';
 
 /**
  * The single entry point of the SDK: a launcher with an unread badge that
@@ -73,14 +64,6 @@ export function SupportButton(props: SupportButtonProps) {
   );
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [screen, setScreen] = useState<Screen>('chat');
-
-  /**
-   * What the user picked, once they have picked. Until then the sheet is
-   * rendered in the host app's hint or the device's language, which is a
-   * guess — hence `chosen`, which is what decides whether to ask.
-   */
-  const [chosen, setChosen] = useState<Language | null>(null);
 
   const {
     threads,
@@ -88,8 +71,6 @@ export function SupportButton(props: SupportButtonProps) {
     newSince,
     loading,
     errorKey,
-    serverLanguage,
-    languageLoaded,
     store,
     refresh,
     reload,
@@ -98,37 +79,25 @@ export function SupportButton(props: SupportButtonProps) {
     revenuecatId: props.user.revenuecatId,
     enabled: validationError === null,
     sheetOpen,
-    // Not while the first-run language prompt covers it: nothing behind
-    // the prompt has been seen, so nothing may be marked read.
-    chatVisible: sheetOpen && screen === 'chat' && chosen !== null,
     idlePollMs: props.pollIntervalMs ?? IDLE_POLL_MS,
   });
 
-  const [draftLanguage, setDraftLanguage] = useState<Language | null>(null);
-  const [savingLanguage, setSavingLanguage] = useState(false);
-  const [languageError, setLanguageError] = useState<string | null>(null);
-
-  // A preference saved on another device (or an earlier install) wins over
-  // any local guess, and answers the "have they chosen?" question for free.
-  useEffect(() => {
-    const stored = asLanguage(serverLanguage);
-    if (stored !== null) setChosen(stored);
-  }, [serverLanguage]);
-
-  const fallbackLanguage =
-    props.defaultLanguage ?? deviceLanguage() ?? DEFAULT_LANGUAGE;
-  const language = chosen ?? fallbackLanguage;
-  const strings = useMemo(
-    () => createTranslator(draftLanguage ?? language),
-    [draftLanguage, language],
-  );
-
   /**
-   * Ask once, on first open — but only once the server has told us whether
-   * this user already answered. Asking before then would show the picker to
-   * someone who chose months ago on another device.
+   * The host app decides the language; the SDK never asks. Anything it
+   * passes that the SDK doesn't support — or nothing — is English, the
+   * language the team writes in, so the user still reads every reply.
    */
-  const mustChooseLanguage = languageLoaded && chosen === null;
+  const requestedLanguage = props.language ?? props.defaultLanguage;
+  const language = asLanguage(requestedLanguage) ?? DEFAULT_LANGUAGE;
+  useEffect(() => {
+    if (__DEV__ && requestedLanguage && asLanguage(requestedLanguage) === null) {
+      console.warn(
+        `SupportButton: language "${requestedLanguage}" isn't supported, so support is shown in English. ` +
+          'Supported: see SUPPORTED_LANGUAGES.',
+      );
+    }
+  }, [requestedLanguage]);
+  const strings = useMemo(() => createTranslator(language), [language]);
 
   /**
    * Asks for notification permission the moment the sheet opens, then
@@ -178,15 +147,18 @@ export function SupportButton(props: SupportButtonProps) {
 
   /**
    * Reports the user on load, and whenever who they are changes, so the team
-   * can find and message them before they ever open support. Refreshes the
-   * push token too when permission was already granted — never prompting:
-   * the OS prompt only appears once the user opens support. Free users
-   * aren't messaged first, so their token waits until they open support.
+   * can find and message them before they ever open support. Their language
+   * rides along, so a message the team sends first arrives translated.
+   * Refreshes the push token too when permission was already granted —
+   * never prompting: the OS prompt only appears once the user opens
+   * support. Free users aren't messaged first, so their token waits until
+   * they open support.
    */
   useEffect(() => {
     if (validationError !== null) return;
     registerUser(config, {
       revenuecatId,
+      language,
       user: { name: userName, plan, appVersion, platform: storePlatform() },
     }).catch(() => {
       // Best effort; the next load reports again.
@@ -208,6 +180,7 @@ export function SupportButton(props: SupportButtonProps) {
     config,
     validationError,
     revenuecatId,
+    language,
     userName,
     plan,
     appVersion,
@@ -218,16 +191,10 @@ export function SupportButton(props: SupportButtonProps) {
   // haven't loaded yet (cold start), it fills in as soon as they do.
   useEffect(() => {
     if (validationError !== null) return;
-    return onSupportNotificationTap(() => {
-      setDraftLanguage(null);
-      setLanguageError(null);
-      setScreen('chat');
-      setSheetOpen(true);
-    });
+    return onSupportNotificationTap(() => setSheetOpen(true));
   }, [validationError]);
 
   function openSheet() {
-    setScreen('chat');
     setSheetOpen(true);
     // The OS prompt appears right as the sheet opens; if the user declines,
     // everything below carries on exactly as before.
@@ -236,9 +203,6 @@ export function SupportButton(props: SupportButtonProps) {
 
   function closeSheet() {
     setSheetOpen(false);
-    setScreen('chat');
-    setDraftLanguage(null);
-    setLanguageError(null);
   }
 
   if (validationError !== null) {
@@ -272,39 +236,6 @@ export function SupportButton(props: SupportButtonProps) {
     return strings.t('error.sendFailed');
   }
 
-  /**
-   * Persists the picked language and leaves the picker.
-   *
-   * A failed save keeps the user on the screen with a retry: getting this
-   * wrong means every message they write is translated from the wrong
-   * language, which is worse than one more tap.
-   */
-  async function confirmLanguage() {
-    const next = draftLanguage ?? language;
-    setSavingLanguage(true);
-    setLanguageError(null);
-    try {
-      await setLanguageRequest(config, {
-        revenuecatId: props.user.revenuecatId,
-        language: next,
-      });
-      setChosen(next);
-      setDraftLanguage(null);
-      setScreen('chat');
-      // On a change, the server re-queues existing replies for translation
-      // into the new language; they arrive over the next poll or two.
-      void reload();
-    } catch (e) {
-      setLanguageError(
-        e instanceof SupportApiError && e.offline
-          ? strings.t('error.offline')
-          : strings.t('lang.saveFailed'),
-      );
-    } finally {
-      setSavingLanguage(false);
-    }
-  }
-
   const reviewLinks = storeLinks(store);
   const reviewLabel =
     reviewLinks === null
@@ -320,30 +251,6 @@ export function SupportButton(props: SupportButtonProps) {
     });
   }
 
-  const languagePicker = (
-    <LanguageScreen
-      theme={theme}
-      strings={strings}
-      selected={draftLanguage ?? language}
-      onSelect={setDraftLanguage}
-      onConfirm={() => void confirmLanguage()}
-      // No way back on first run: there is nothing behind it yet, so the
-      // only exit is choosing — or closing the sheet, which asks again.
-      onBack={
-        mustChooseLanguage
-          ? undefined
-          : () => {
-              setDraftLanguage(null);
-              setLanguageError(null);
-              setScreen('chat');
-            }
-      }
-      onDismiss={mustChooseLanguage ? closeSheet : undefined}
-      saving={savingLanguage}
-      error={languageError}
-    />
-  );
-
   return (
     <>
       <LauncherButton
@@ -357,35 +264,23 @@ export function SupportButton(props: SupportButtonProps) {
       />
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet} theme={theme}>
-        {/* The one-time prompt outranks whatever screen the user is on: it
-            only ever fires before they have sent anything. */}
-        {mustChooseLanguage || screen === 'language' ? (
-          languagePicker
-        ) : (
-          <ChatScreen
-            theme={theme}
-            strings={strings}
-            language={language}
-            threads={threads}
-            newSince={newSince}
-            loading={loading}
-            error={errorKey === null ? null : strings.t(errorKey)}
-            onRetry={refresh}
-            outbox={outbox}
-            sendError={sendError === null ? null : writeErrorMessage(sendError)}
-            onSend={send}
-            onRetrySend={retrySend}
-            onClearSendError={clearSendError}
-            onChangeLanguage={() => {
-              setDraftLanguage(language);
-              setLanguageError(null);
-              setScreen('language');
-            }}
-            onClose={closeSheet}
-            reviewLabel={reviewLabel}
-            onOpenReview={openReview}
-          />
-        )}
+        <ChatScreen
+          theme={theme}
+          strings={strings}
+          threads={threads}
+          newSince={newSince}
+          loading={loading}
+          error={errorKey === null ? null : strings.t(errorKey)}
+          onRetry={refresh}
+          outbox={outbox}
+          sendError={sendError === null ? null : writeErrorMessage(sendError)}
+          onSend={send}
+          onRetrySend={retrySend}
+          onClearSendError={clearSendError}
+          onClose={closeSheet}
+          reviewLabel={reviewLabel}
+          onOpenReview={openReview}
+        />
       </BottomSheet>
     </>
   );

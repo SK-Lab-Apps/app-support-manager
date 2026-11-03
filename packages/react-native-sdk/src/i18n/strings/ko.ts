@@ -62,13 +62,6 @@ export const ko: StringTable = {
   'error.unavailable': '지금은 고객지원을 이용할 수 없습니다',
   'error.loadRateLimited': '요청이 너무 많습니다 — 잠시 후 다시 시도해 주세요',
 
-  'lang.title': '언어를 선택하세요',
-  'lang.subtitle':
-    '편한 언어로 작성하세요 — 고객님과 지원팀 사이를 번역해 드립니다.',
-  'lang.continue': '계속',
-  'lang.change': '언어 변경',
-  'lang.saveFailed': '저장하지 못했습니다 — 다시 시도해 주세요',
-
   'time.justNow': '방금',
   'time.minutes': '{count}분 전',
   'time.hours': '{count}시간 전',

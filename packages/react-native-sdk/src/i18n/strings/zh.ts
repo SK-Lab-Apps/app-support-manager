@@ -62,12 +62,6 @@ export const zh: StringTable = {
   'error.unavailable': '客服支持暂时不可用',
   'error.loadRateLimited': '请求过于频繁 —— 请稍等片刻再试',
 
-  'lang.title': '选择你的语言',
-  'lang.subtitle': '用你习惯的语言书写 —— 我们会在你和客服团队之间翻译。',
-  'lang.continue': '继续',
-  'lang.change': '更改语言',
-  'lang.saveFailed': '保存失败 —— 请重试',
-
   'time.justNow': '刚刚',
   'time.minutes': '{count} 分钟前',
   'time.hours': '{count} 小时前',

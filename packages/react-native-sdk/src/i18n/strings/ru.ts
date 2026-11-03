@@ -63,13 +63,6 @@ export const ru: StringTable = {
   'error.unavailable': 'Поддержка сейчас недоступна',
   'error.loadRateLimited': 'Слишком много запросов — попробуйте через минуту',
 
-  'lang.title': 'Выберите язык',
-  'lang.subtitle':
-    'Пишите на удобном вам языке — мы переводим между вами и командой поддержки.',
-  'lang.continue': 'Продолжить',
-  'lang.change': 'Изменить язык',
-  'lang.saveFailed': 'Не удалось сохранить — попробуйте ещё раз',
-
   'time.justNow': 'только что',
   'time.minutes': '{count} мин назад',
   'time.hours': '{count} ч назад',

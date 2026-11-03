@@ -63,13 +63,6 @@ export const hi: StringTable = {
   'error.unavailable': 'सहायता अभी उपलब्ध नहीं है',
   'error.loadRateLimited': 'बहुत ज़्यादा अनुरोध — थोड़ी देर में कोशिश करें',
 
-  'lang.title': 'अपनी भाषा चुनें',
-  'lang.subtitle':
-    'जिस भाषा में सहज हों उसी में लिखें — हम आपके और सहायता टीम के बीच अनुवाद करते हैं।',
-  'lang.continue': 'जारी रखें',
-  'lang.change': 'भाषा बदलें',
-  'lang.saveFailed': 'सहेजा नहीं जा सका — फिर कोशिश करें',
-
   'time.justNow': 'अभी',
   'time.minutes': '{count} मिनट पहले',
   'time.hours': '{count} घंटे पहले',

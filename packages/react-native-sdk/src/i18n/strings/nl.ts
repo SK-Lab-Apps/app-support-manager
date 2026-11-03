@@ -63,13 +63,6 @@ export const nl: StringTable = {
   'error.unavailable': 'Support is momenteel niet beschikbaar',
   'error.loadRateLimited': 'Te veel verzoeken — probeer het zo opnieuw',
 
-  'lang.title': 'Kies je taal',
-  'lang.subtitle':
-    'Schrijf in de taal die jij wilt — wij vertalen tussen jou en het supportteam.',
-  'lang.continue': 'Doorgaan',
-  'lang.change': 'Taal wijzigen',
-  'lang.saveFailed': 'Opslaan mislukt — probeer het opnieuw',
-
   'time.justNow': 'zojuist',
   'time.minutes': '{count} min geleden',
   'time.hours': '{count} u geleden',

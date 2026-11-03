@@ -64,13 +64,6 @@ export const de: StringTable = {
   'error.unavailable': 'Der Support ist gerade nicht verfügbar',
   'error.loadRateLimited': 'Zu viele Anfragen — versuche es gleich noch einmal',
 
-  'lang.title': 'Wähle deine Sprache',
-  'lang.subtitle':
-    'Schreib in der Sprache, die dir liegt — wir übersetzen zwischen dir und dem Support-Team.',
-  'lang.continue': 'Weiter',
-  'lang.change': 'Sprache ändern',
-  'lang.saveFailed': 'Speichern fehlgeschlagen — versuche es noch einmal',
-
   'time.justNow': 'gerade eben',
   'time.minutes': 'vor {count} Min.',
   'time.hours': 'vor {count} Std.',

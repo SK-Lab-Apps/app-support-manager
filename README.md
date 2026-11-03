@@ -84,9 +84,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 
 ## Multilingual support
 
-End users write in the language they pick in the SDK; admins read and write English. Nobody sees a language they didn't choose.
+End users read and write support in the language the host app passes the SDK; admins read and write English.
 
-- **First open** shows a one-time language prompt, pre-selected from `defaultLanguage` (if the host app passes one) or the device locale. The choice is stored server-side per `revenuecat_id`, so it survives a reinstall and follows the user across devices, and it can be changed later from the sheet.
+- **The host app decides**: `language` on `SupportButton`, English when it's absent or unsupported. The SDK never asks. It reports the language on every load (`register-user`), so it's stored per `revenuecat_id` before the user ever opens support and a message the team sends first arrives translated. When it changes, replies already in the chat are translated again — including the first change away from English, since everything sent before a language was stored went out in English. SDKs before 0.5 still ask once, on first open (`set-language`).
 - **Every message is stored twice**: `body` as the sender typed it, `body_translated` as its counterpart. The dashboard shows user messages in English with the original one click away; the SDK shows admin replies in the user's language.
 - **Translation never blocks a send.** The message row is written first and translated a moment later. If the provider is down, the message still arrives — untranslated, with a badge and a retry in the dashboard — and a `pg_cron` job sweeps anything that was missed. Push notification copy is localized from a static string table, not the model.
 - **List and search stay English**: the query list's excerpt is the translated text, and search matches against both renderings, so an English search term finds a German thread.
@@ -248,7 +248,7 @@ import { SupportButton } from '@appsupportkit/support-sdk';
     appVersion: '2.4.1',
   }}
   theme="system"                             // default; "light" or "dark" pins it
-  defaultLanguage="fr"                       // optional; pre-selects the language prompt
+  language="fr"                              // optional; default "en" — see Language below
 />
 ```
 
@@ -266,7 +266,7 @@ The user sees a single chat. The dashboard still works in conversations it can r
 
 `plan` is what the team filters and messages users by. With RevenueCat: `"trial"` when the active entitlement's `periodType` is `TRIAL`, `"pro"` when it is active otherwise, `"free"` without one. `isPaid` is still accepted (true reads as `"pro"`) but can't say `"trial"`.
 
-The SDK reports the user (name, plan, app version) on every load through `register-user`, so the dashboard's Users tab lists paying and trial users before they ever open support, and it refreshes their push token then if notifications are already allowed — it never prompts outside the sheet. A free user is acknowledged but not stored, and their push token is only registered once they open support.
+The SDK reports the user (name, plan, app version, language) on every load through `register-user`, so the dashboard's Users tab lists paying and trial users before they ever open support, and it refreshes their push token then if notifications are already allowed — it never prompts outside the sheet. A free user is acknowledged but not stored, and their push token is only registered once they open support.
 
 ### Compatibility with SDKs before 0.4
 
@@ -276,7 +276,7 @@ End users never see which admin they are talking to — replies are attributed t
 
 ### Language
 
-The whole sheet — chrome and messages alike — renders in the language the user picks the first time they open support. Pass `defaultLanguage` when your app already knows what they read; the SDK falls back to the device locale, and in both cases it is only a pre-selection, since the user still confirms. Supported: English, Spanish, French, German, Dutch, Portuguese, Italian, Polish, Turkish, Russian, Japanese, Korean, Simplified Chinese, Hindi (`SUPPORTED_LANGUAGES` and `LANGUAGE_LABELS` are exported if you want to build your own picker).
+The whole sheet — chrome and messages alike — renders in the `language` the host app passes: its own language setting, or `deviceLanguage()` (exported) to follow the phone. Without it, or with a code the SDK doesn't support, support is in English (with a warning in dev); a region is fine (`"pt-BR"` reads as Portuguese). The user writes in it too, and the team reads their messages in English. There is no language screen in the sheet — when the app's language changes, pass the new one and the replies already there are translated again. Supported: English, Spanish, French, German, Dutch, Portuguese, Italian, Polish, Turkish, Russian, Japanese, Korean, Simplified Chinese, Hindi (`SUPPORTED_LANGUAGES` and `LANGUAGE_LABELS` are exported). `defaultLanguage`, from SDKs before 0.5, still works as `language`.
 
 ### Launcher appearance
 
@@ -312,7 +312,7 @@ That carries three rules worth knowing when reading `useSupportThreads.ts`:
 - `get-unread-count` returns a bare number that can't be reconciled against local reads, so its answer is dropped if a read happened while it was in flight, and it is skipped entirely while any receipt is unconfirmed — the full payload is polled instead, because that one *can* be reconciled.
 - Failed `mark-read` calls are retried with backoff rather than swallowed; until one lands, the watermark holds the UI correct.
 
-Replies that arrive while the chat is on screen are marked read on arrival, so the badge never climbs while the user is reading. Nothing is marked read while the first-run language prompt covers the chat.
+Replies that arrive while the chat is on screen are marked read on arrival, so the badge never climbs while the user is reading.
 
 The chat's *New* divider is fixed as the sheet opens, from the badge the user tapped, before anything is marked read. It is a timestamp rather than a count, so replies arriving while the user reads join the block below it instead of pushing it down.
 
@@ -323,7 +323,6 @@ Polling adapts to what the user is looking at, so latency is low where it's felt
 | Context | Interval | Endpoint |
 | --- | --- | --- |
 | Chat on screen | 5s | `get-threads` |
-| Sheet open (language picker) | 15s | `get-threads` |
 | Sheet closed (idle) | `pollIntervalMs`, default 10s | `get-unread-count` (~18 bytes) |
 | Sheet closed, count moved | right after that tick | `get-threads`, so the chat opens with the new replies already loaded |
 | Sheet closed, receipt unconfirmed | as above | `get-threads` (until the receipt lands) |

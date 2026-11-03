@@ -10,13 +10,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 import type { Translator } from '../../i18n';
-import { LANGUAGE_LABELS, type Language } from '../../i18n/languages';
 import type { SupportTheme } from '../../theme';
 import type { Thread, ThreadMessage } from '../../types';
 import { USER_MESSAGE_MAX, USER_MESSAGE_MIN } from '../../types';
 import type { OutgoingMessage } from '../../useOutbox';
 import { dayLabel, formatDate, formatTime, isSameDay } from '../../utils';
-import { ArrowUpIcon, CloseIcon, GlobeIcon } from '../icons';
+import { ArrowUpIcon, CloseIcon } from '../icons';
 import {
   EmptyState,
   ErrorState,
@@ -332,7 +331,6 @@ function MessageBubble({
 export function ChatScreen({
   theme,
   strings,
-  language,
   threads,
   newSince,
   loading,
@@ -343,14 +341,12 @@ export function ChatScreen({
   onSend,
   onRetrySend,
   onClearSendError,
-  onChangeLanguage,
   onClose,
   reviewLabel,
   onOpenReview,
 }: {
   theme: SupportTheme;
   strings: Translator;
-  language: Language;
   threads: Thread[] | null;
   /** Where the "New" divider starts (`created_at` in ms), or null for none. */
   newSince: number | null;
@@ -365,7 +361,6 @@ export function ChatScreen({
   onSend: (message: string) => void;
   onRetrySend: (key: string) => void;
   onClearSendError: () => void;
-  onChangeLanguage: () => void;
   onClose: () => void;
   /** The review button's label, or null when this platform's store isn't set up. */
   reviewLabel: string | null;
@@ -438,32 +433,6 @@ export function ChatScreen({
         <Text style={[textStyles.title(theme), { flex: 1 }]}>
           {strings.t('home.title')}
         </Text>
-        {/* Language is the sheet's only preference, so it lives here rather
-            than behind a settings screen. */}
-        <Pressable
-          onPress={onChangeLanguage}
-          accessibilityRole="button"
-          accessibilityLabel={strings.t('lang.change')}
-          hitSlop={6}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            height: 32,
-            paddingHorizontal: 10,
-            borderRadius: theme.radii.pill,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            backgroundColor: pressed
-              ? theme.colors.surfaceActive
-              : theme.colors.surface,
-          })}
-        >
-          <GlobeIcon color={theme.colors.textSecondary} size={14} />
-          <Text style={[textStyles.meta(theme), { color: theme.colors.textSecondary }]}>
-            {LANGUAGE_LABELS[language]}
-          </Text>
-        </Pressable>
         <IconButton
           onPress={onClose}
           theme={theme}

@@ -75,13 +75,6 @@ export const en = {
   'error.unavailable': 'Support is unavailable right now',
   'error.loadRateLimited': 'Too many requests — try again in a bit',
 
-  'lang.title': 'Choose your language',
-  'lang.subtitle':
-    'Write in whichever language you prefer — we translate between you and the support team.',
-  'lang.continue': 'Continue',
-  'lang.change': 'Change language',
-  'lang.saveFailed': "Couldn't save — try again",
-
   'time.justNow': 'just now',
   'time.minutes': '{count}m ago',
   'time.hours': '{count}h ago',

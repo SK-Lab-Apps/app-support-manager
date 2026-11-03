@@ -64,13 +64,6 @@ export const fr: StringTable = {
   'error.unavailable': "L'assistance est indisponible pour le moment",
   'error.loadRateLimited': 'Trop de demandes — réessayez dans un instant',
 
-  'lang.title': 'Choisissez votre langue',
-  'lang.subtitle':
-    "Écrivez dans la langue de votre choix — nous traduisons entre vous et l'équipe d'assistance.",
-  'lang.continue': 'Continuer',
-  'lang.change': 'Changer de langue',
-  'lang.saveFailed': 'Enregistrement impossible — réessayez',
-
   'time.justNow': "à l'instant",
   'time.minutes': 'il y a {count} min',
   'time.hours': 'il y a {count} h',

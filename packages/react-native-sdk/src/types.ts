@@ -101,13 +101,22 @@ export interface SupportButtonProps {
    */
   expoProjectId?: string;
   /**
-   * Pre-selects a language in the picker the first time a user opens support.
-   * Pass it when the host app already knows what the user reads — an in-app
-   * language setting beats the device locale, which is what the SDK falls
-   * back to. It is a default, not an override: the user still chooses, and a
-   * choice they have already made always wins.
+   * The language support is shown in: the sheet itself, and the team's
+   * replies, which are translated into it. The user writes in it too, and
+   * the team reads their messages in English. Pass what the host app
+   * already shows the user — e.g. its own language setting, or
+   * `deviceLanguage()`. Codes with a region ("pt-BR") are fine.
+   *
+   * Default "en". A language the SDK doesn't support (see
+   * `SUPPORTED_LANGUAGES`) also shows English, with a warning in dev.
+   * Changing it re-translates replies already in the chat.
    */
-  defaultLanguage?: Language;
+  language?: Language | (string & {});
+  /**
+   * @deprecated Pass `language`. SDKs before 0.5 asked the user to choose,
+   * pre-selecting this; it is now read as `language` when that is absent.
+   */
+  defaultLanguage?: Language | (string & {});
 }
 
 export interface ThreadMessage {
@@ -163,7 +172,11 @@ export interface Thread {
 export interface ThreadsResponse {
   threads: Thread[];
   total_unread: number;
-  /** Null when this user has never picked one — the SDK then asks. */
+  /**
+   * The language stored for this user, or null if none is. Builds before
+   * 0.5 asked the user to pick one when null; 0.5+ takes it from the host
+   * app and ignores this.
+   */
   language: string | null;
   /** The app's store listings, for review requests. */
   store?: StoreListing;

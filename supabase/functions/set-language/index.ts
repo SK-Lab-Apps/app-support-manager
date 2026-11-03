@@ -2,16 +2,21 @@
 // Records the language an end user reads and writes support messages in.
 // Auth: x-api-key header; the preference is scoped to that app + revenuecat_id.
 //
-// Called once when the user answers the SDK's language prompt, and again
-// whenever they change it. The write endpoints also refresh the preference
-// from the language they were handed, so a lost call here self-heals on the
-// user's next message.
+// Called by SDKs before 0.5 once the user answers their language prompt,
+// and again whenever they change it; 0.5+ reports the host app's language
+// through register-user instead. The write endpoints also refresh the
+// preference from the language they were handed, so a lost call here
+// self-heals on the user's next message.
 
 import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json, preflight } from '../_shared/http.ts';
 import { authenticateApp, serviceClient } from '../_shared/app-auth.ts';
 import { enforceRateLimit, LIMITS } from '../_shared/rate-limit.ts';
-import { baseLanguage, isSupportedLanguage } from '../_shared/languages.ts';
+import {
+  ADMIN_LANGUAGE,
+  baseLanguage,
+  isSupportedLanguage,
+} from '../_shared/languages.ts';
 import {
   requeueAdminTranslations,
   storedLanguage,
@@ -80,11 +85,12 @@ Deno.serve(async (req) => {
     return errorResponse("Couldn't save language", 500);
   }
 
-  // Replies already in their threads were translated into the old language.
-  // Only re-queue on an actual change: the SDK re-sends the same value on
-  // every write, and re-translating a thread on each message would be
-  // expensive and pointless.
-  if (previous !== null && previous !== language) {
+  // Replies already in their threads were translated into the old language
+  // — English, before one was stored, as for a message we sent first. Only
+  // re-queue on an actual change: the SDK re-sends the same value on every
+  // write, and re-translating a thread on each message would be expensive
+  // and pointless.
+  if ((previous ?? ADMIN_LANGUAGE) !== language) {
     await requeueAdminTranslations(
       supabase,
       app.id,

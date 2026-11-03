@@ -111,20 +111,6 @@ export function registerPush(
   });
 }
 
-/** Records the language the user reads and writes support messages in. */
-export function setLanguage(
-  config: ApiConfig,
-  input: { revenuecatId: string; language: string },
-): Promise<{ language: string }> {
-  return request(config, 'set-language', {
-    method: 'POST',
-    body: JSON.stringify({
-      revenuecat_id: input.revenuecatId,
-      language: input.language,
-    }),
-  });
-}
-
 /** What the backend is told about the current user. */
 export interface ReportedUser {
   name: string;
@@ -163,7 +149,8 @@ export function sendMessage(
       app_name: config.appName,
       revenuecat_id: input.revenuecatId,
       message: input.message,
-      // Sent on every write so a lost set-language call self-heals.
+      // Sent on every write too, so a register-user call that never landed
+      // can't leave the message translated from the wrong language.
       language: input.language,
       user: reportedUser(input.user),
     }),
@@ -172,17 +159,19 @@ export function sendMessage(
 
 /**
  * Records the user in the app's directory, so the team can find and message
- * them before they ever open support. Called on every load.
+ * them before they ever open support, along with the language the host app
+ * shows support in. Called on every load, and when either changes.
  */
 export function registerUser(
   config: ApiConfig,
-  input: { revenuecatId: string; user: ReportedUser },
+  input: { revenuecatId: string; language: string; user: ReportedUser },
 ): Promise<{ ok: boolean }> {
   return request(config, 'register-user', {
     method: 'POST',
     body: JSON.stringify({
       app_name: config.appName,
       revenuecat_id: input.revenuecatId,
+      language: input.language,
       user: reportedUser(input.user),
     }),
   });

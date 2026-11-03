@@ -38,7 +38,6 @@ import {
 // uses the count-only endpoint, so it costs ~18 bytes instead of the full
 // thread list. The full list is only fetched when that count moves.
 const CHAT_POLL_MS = 5_000;
-const SHEET_POLL_MS = 15_000;
 export const IDLE_POLL_MS = 10_000;
 const MIN_POLL_MS = 3_000;
 
@@ -100,15 +99,6 @@ export interface SupportThreadsState {
   refreshing: boolean;
   /** Set only when there is nothing cached; background failures stay quiet. */
   errorKey: StringKey | null;
-  /** The language this user picked, or null if they never have. */
-  serverLanguage: string | null;
-  /**
-   * False until the first successful load. `serverLanguage === null` only
-   * means "never picked" once this is true — before that it means "don't
-   * know yet", and showing the picker on a guess would nag a user who
-   * answered on another device.
-   */
-  languageLoaded: boolean;
   /** The app's store listings, for review request buttons. */
   store: StoreListing | null;
   /** User-initiated refresh (pull-to-refresh, retry button). */
@@ -122,19 +112,17 @@ export function useSupportThreads({
   revenuecatId,
   enabled,
   sheetOpen,
-  chatVisible,
   idlePollMs,
 }: {
   config: ApiConfig;
   revenuecatId: string;
   /** False when props failed validation — no requests are made. */
   enabled: boolean;
-  sheetOpen: boolean;
   /**
    * The chat is on screen. It shows every conversation at once, so all of
    * them are read while it is — including replies that arrive meanwhile.
    */
-  chatVisible: boolean;
+  sheetOpen: boolean;
   idlePollMs: number;
 }): SupportThreadsState {
   const [threads, setThreads] = useState<Thread[] | null>(null);
@@ -143,8 +131,6 @@ export function useSupportThreads({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [errorKey, setErrorKey] = useState<StringKey | null>(null);
-  const [serverLanguage, setServerLanguage] = useState<string | null>(null);
-  const [languageLoaded, setLanguageLoaded] = useState(false);
   const [store, setStore] = useState<StoreListing | null>(null);
 
   const mounted = useRef(true);
@@ -155,11 +141,11 @@ export function useSupportThreads({
   const requestSeq = useRef(0);
   const appliedSeq = useRef(0);
   const readEpoch = useRef(0);
-  const chatVisibleRef = useRef(chatVisible);
+  const sheetOpenRef = useRef(sheetOpen);
 
   useEffect(() => {
-    chatVisibleRef.current = chatVisible;
-  }, [chatVisible]);
+    sheetOpenRef.current = sheetOpen;
+  }, [sheetOpen]);
 
   useEffect(() => {
     mounted.current = true;
@@ -293,14 +279,12 @@ export function useSupportThreads({
         rawThreads.current = data.threads;
         watermarks.current = pruneWatermarks(watermarks.current, data.threads);
         setErrorKey(null);
-        setServerLanguage(data.language);
-        setLanguageLoaded(true);
         setStore(data.store ?? null);
         publish();
 
         // Replies that arrived while the user is looking at the chat are
         // read on arrival — otherwise the badge climbed while they read.
-        if (chatVisibleRef.current) markAllRead();
+        if (sheetOpenRef.current) markAllRead();
         flushReads();
       } catch (e) {
         if (!mounted.current) return;
@@ -365,8 +349,8 @@ export function useSupportThreads({
 
   // Opening the chat marks everything read immediately, before the next poll.
   useEffect(() => {
-    if (chatVisible) markAllRead();
-  }, [chatVisible, markAllRead]);
+    if (sheetOpen) markAllRead();
+  }, [sheetOpen, markAllRead]);
 
   // A support push means a reply has already landed: load it now rather
   // than on the next tick, so the badge and the chat both have it.
@@ -382,11 +366,7 @@ export function useSupportThreads({
   useEffect(() => {
     if (!enabled) return;
     const idle = !sheetOpen;
-    const intervalMs = idle
-      ? idlePollMs
-      : chatVisible
-        ? CHAT_POLL_MS
-        : SHEET_POLL_MS;
+    const intervalMs = idle ? idlePollMs : CHAT_POLL_MS;
 
     const tick = () => {
       // While a receipt is unconfirmed the count-only endpoint would report
@@ -414,14 +394,7 @@ export function useSupportThreads({
       if (timer !== null) clearInterval(timer);
       appStateSub.remove();
     };
-  }, [
-    enabled,
-    sheetOpen,
-    chatVisible,
-    idlePollMs,
-    fetchThreads,
-    fetchCount,
-  ]);
+  }, [enabled, sheetOpen, idlePollMs, fetchThreads, fetchCount]);
 
   const refresh = useCallback(() => {
     void fetchThreads('user');
@@ -436,8 +409,6 @@ export function useSupportThreads({
     loading,
     refreshing,
     errorKey,
-    serverLanguage,
-    languageLoaded,
     store,
     refresh,
     reload,

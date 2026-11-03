@@ -63,13 +63,6 @@ export const tr: StringTable = {
   'error.unavailable': 'Destek şu anda kullanılamıyor',
   'error.loadRateLimited': 'Çok fazla istek — birazdan tekrar deneyin',
 
-  'lang.title': 'Dilinizi seçin',
-  'lang.subtitle':
-    'İstediğiniz dilde yazın — sizinle destek ekibi arasında çeviri yapıyoruz.',
-  'lang.continue': 'Devam',
-  'lang.change': 'Dili değiştir',
-  'lang.saveFailed': 'Kaydedilemedi — tekrar deneyin',
-
   'time.justNow': 'az önce',
   'time.minutes': '{count} dk önce',
   'time.hours': '{count} sa önce',

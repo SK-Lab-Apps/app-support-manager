@@ -4,6 +4,10 @@
 // dashboard list an app's users and message them first, before they ever
 // open support. Paying and trial users only: a free user is acknowledged and
 // not stored.
+//
+// SDK 0.5+ also sends the language the host app shows support in, so a
+// message the team sends first arrives in it. A free user's is only kept
+// up to date once they have one stored — from writing to support.
 // Auth: x-api-key header (per app) + app_name must match the key's app.
 //
 // Rate limited per user only. It runs on every launch, so counting it
@@ -16,6 +20,8 @@ import { authenticateApp, serviceClient } from '../_shared/app-auth.ts';
 import { enforceRateLimit, LIMITS } from '../_shared/rate-limit.ts';
 import { ReportedUserSchema, touchAppUser } from '../_shared/app-users.ts';
 import { sdkVersion } from '../_shared/sdk.ts';
+import { isSupportedLanguage } from '../_shared/languages.ts';
+import { updateUserLanguage } from '../_shared/user-language.ts';
 
 const REGISTRATIONS_PER_USER = 60;
 
@@ -23,6 +29,8 @@ const BodySchema = z.object({
   app_name: z.string().min(1),
   revenuecat_id: z.string().trim().min(1).max(200),
   user: ReportedUserSchema,
+  // Optional: builds before 0.5 ask the user instead (set-language).
+  language: z.string().trim().max(16).optional(),
 });
 
 Deno.serve(async (req) => {
@@ -58,10 +66,20 @@ Deno.serve(async (req) => {
     platform: body.user.platform,
   };
 
+  // An unsupported code is ignored rather than refused: the SDK only sends
+  // ones it supports, and the directory write matters more.
+  const language =
+    body.language && isSupportedLanguage(body.language) ? body.language : null;
+
   // Free users aren't kept in the directory, so there is nothing to throttle
   // — and no per-user counter row worth writing for every one of them.
   if (user.plan === 'free') {
     await touchAppUser(supabase, app.id, body.revenuecat_id, user);
+    if (language) {
+      await updateUserLanguage(supabase, app.id, body.revenuecat_id, language, {
+        onlyIfStored: true,
+      });
+    }
     return json({ ok: true });
   }
 
@@ -75,6 +93,9 @@ Deno.serve(async (req) => {
   if (limited) return limited;
 
   await touchAppUser(supabase, app.id, body.revenuecat_id, user);
+  if (language) {
+    await updateUserLanguage(supabase, app.id, body.revenuecat_id, language);
+  }
 
   return json({ ok: true });
 });

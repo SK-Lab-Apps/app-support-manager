@@ -63,13 +63,6 @@ export const ja: StringTable = {
   'error.unavailable': '現在サポートをご利用いただけません',
   'error.loadRateLimited': 'リクエストが多すぎます。少し経ってからお試しください',
 
-  'lang.title': '言語を選択',
-  'lang.subtitle':
-    'お好きな言語でどうぞ。あなたとサポートチームの間で翻訳します。',
-  'lang.continue': '続ける',
-  'lang.change': '言語を変更',
-  'lang.saveFailed': '保存できませんでした。もう一度お試しください',
-
   'time.justNow': 'たった今',
   'time.minutes': '{count} 分前',
   'time.hours': '{count} 時間前',

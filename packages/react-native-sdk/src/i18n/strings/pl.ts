@@ -63,13 +63,6 @@ export const pl: StringTable = {
   'error.unavailable': 'Pomoc jest teraz niedostępna',
   'error.loadRateLimited': 'Zbyt wiele żądań — spróbuj za chwilę',
 
-  'lang.title': 'Wybierz swój język',
-  'lang.subtitle':
-    'Pisz w dowolnym języku — tłumaczymy między Tobą a zespołem pomocy.',
-  'lang.continue': 'Dalej',
-  'lang.change': 'Zmień język',
-  'lang.saveFailed': 'Nie udało się zapisać — spróbuj ponownie',
-
   'time.justNow': 'przed chwilą',
   'time.minutes': '{count} min temu',
   'time.hours': '{count} godz. temu',

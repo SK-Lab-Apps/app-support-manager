@@ -1,7 +1,7 @@
 import { NativeModules, Platform } from 'react-native';
 
 /**
- * The languages the picker offers.
+ * The languages support can be shown in.
  *
  * Kept in sync by hand with supabase/functions/_shared/languages.ts — the two
  * run in different runtimes and share no build step. Adding one means adding a
@@ -34,8 +34,9 @@ export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 export const DEFAULT_LANGUAGE: Language = 'en';
 
 /**
- * Endonyms — a language is listed the way its own speakers write it, so the
- * picker is readable to someone who can't read the current UI language.
+ * Endonyms — a language is listed the way its own speakers write it, so a
+ * host app's own language picker is readable to someone who can't read the
+ * current UI language.
  */
 export const LANGUAGE_LABELS: Record<Language, string> = {
   en: 'English',
@@ -94,11 +95,8 @@ function rawDeviceLocale(): string | null {
 /**
  * The device's language, if the SDK supports it.
  *
- * Used to pre-select a row in the picker and to render the picker itself, so
- * the one screen shown before we know the user's choice is already in a
- * language they probably read. Deliberately not used to *skip* the picker: a
- * device set to French says nothing about which language its owner wants to
- * write support messages in.
+ * Not applied on its own — the host app decides, and the default is English.
+ * Exported for host apps that want to pass it as `language`.
  */
 export function deviceLanguage(): Language | null {
   const locale = rawDeviceLocale();
