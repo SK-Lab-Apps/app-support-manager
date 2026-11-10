@@ -16,7 +16,14 @@
 //    switched on, to go out its delay later (send-automations sends it).
 //    Any event also skips the user's runs still waiting that it undoes:
 //    turning auto-renew back on drops a "sorry to see you go", cancelling
-//    drops a welcome that hasn't gone yet.
+//    drops a welcome that hasn't gone yet, even one send-automations is
+//    sending at that moment.
+//
+// RevenueCat retries a failed delivery, so events can arrive out of order.
+// Each is recorded with when it happened and applied in that order by
+// record_subscription_event, in one transaction: a late INITIAL_PURCHASE
+// doesn't undo the CANCELLATION that came after it, schedule the welcome
+// it ruled out, or put the plan back to trial.
 //
 // Auth: the Authorization header value set in RevenueCat, which must be
 // `Bearer <REVENUECAT_WEBHOOK_SECRET>`. One secret serves every app; the
@@ -25,7 +32,7 @@
 //
 // Any well-formed event gets a 200, so RevenueCat doesn't retry the ones
 // that need nothing done. A failed write gets a 500, and RevenueCat retries;
-// the event id keeps a retry from scheduling a message twice.
+// the event id keeps a retry from being applied twice.
 
 import { z } from 'npm:zod@3.23.8';
 import { errorResponse, json } from '../_shared/http.ts';
@@ -106,6 +113,16 @@ function automationFor(event: RevenueCatEvent): AutomationEvent | null {
   }
 }
 
+/** What record_subscription_event returns. */
+interface RecordResult {
+  o_duplicate: boolean;
+  o_updated: number;
+  o_skipped: number;
+  o_scheduled: boolean;
+  o_due_at: string | null;
+  o_note: string | null;
+}
+
 const WELCOMES: AutomationEvent[] = ['trial_started', 'pro_started', 'trial_converted'];
 const CANCELLATIONS: AutomationEvent[] = ['trial_cancelled', 'pro_cancelled'];
 
@@ -184,97 +201,47 @@ Deno.serve(async (req) => {
   ].slice(0, MAX_IDS);
   if (ids.length === 0) return json({ ok: true, ignored: event.type });
 
-  // ---------- plan ----------
   const plan = planAfter(event.type, event.period_type);
-  let updated = 0;
-  if (plan !== null) {
-    const { data, error: updateError } = await supabase
-      .from('app_users')
-      .update({ plan })
-      .eq('app_id', appId)
-      .in('revenuecat_id', ids)
-      .select('revenuecat_id');
-    if (updateError) {
-      // A 500 has RevenueCat try again later.
-      console.error('revenuecat-webhook: update failed', updateError);
-      return errorResponse("Couldn't record the event", 500);
-    }
-    updated = data?.length ?? 0;
-  }
-
-  // ---------- automations: what this event undoes ----------
   const undone = undoneBy(event);
-  if (undone.length > 0) {
-    const { error: skipError } = await supabase
-      .from('automation_runs')
-      .update({
-        status: 'skipped',
-        note: `Undone by ${event.type}`,
-        processed_at: new Date().toISOString(),
-      })
-      .eq('app_id', appId)
-      .in('revenuecat_id', ids)
-      .eq('status', 'pending')
-      .in('event', undone);
-    if (skipError) {
-      console.error('revenuecat-webhook: skipping runs failed', skipError);
-      return errorResponse("Couldn't record the event", 500);
-    }
-  }
-
-  // ---------- automations: what this event schedules ----------
   const trigger = automationFor(event);
+  if (plan === null && undone.length === 0 && trigger === null) {
+    return json({ ok: true, ignored: event.type });
+  }
+
+  // Applied in the order things happened, not the order they arrived (see
+  // record_subscription_event): a CANCELLATION delivered before the
+  // INITIAL_PURCHASE it followed still wins.
   const eventAt = event.event_timestamp_ms ?? Date.now();
-  if (trigger === null || !event.id || Date.now() - eventAt > STALE_AFTER_MS) {
-    return json({ ok: true, plan, updated, scheduled: false });
-  }
+  // An event without an id can't be told from a repeat of itself, so it
+  // schedules nothing; it is still recorded, under an id of its own.
+  const schedules =
+    trigger !== null && Boolean(event.id) && Date.now() - eventAt <= STALE_AFTER_MS;
 
-  const { data: automation, error: automationError } = await supabase
-    .from('automations')
-    .select('id, delay_minutes, enabled')
-    .eq('app_id', appId)
-    .eq('event', trigger)
-    .maybeSingle();
-  if (automationError) {
-    console.error('revenuecat-webhook: automation lookup failed', automationError);
+  const { data, error } = await supabase.rpc('record_subscription_event', {
+    p_app_id: appId,
+    p_event_id: event.id ?? `no-id:${crypto.randomUUID()}`,
+    p_event_type: event.type,
+    p_revenuecat_ids: ids,
+    p_event_at: new Date(eventAt).toISOString(),
+    p_plan: plan,
+    p_undoes: undone,
+    p_trigger: schedules ? trigger : null,
+  });
+  if (error) {
+    // A 500 has RevenueCat try again later; nothing of it was kept.
+    console.error('revenuecat-webhook: recording the event failed', error);
     return errorResponse("Couldn't record the event", 500);
   }
-  if (!automation || !automation.enabled) {
-    return json({ ok: true, plan, updated, scheduled: false });
-  }
+  const result = (data as RecordResult[] | null)?.[0];
 
-  // Message the id the SDK knows them by when they're in the directory;
-  // otherwise RevenueCat's current one, which the SDK is meant to pass.
-  const { data: known } = await supabase
-    .from('app_users')
-    .select('revenuecat_id')
-    .eq('app_id', appId)
-    .in('revenuecat_id', ids)
-    .limit(1)
-    .maybeSingle();
-  const revenuecatId = known?.revenuecat_id ?? ids[0]!;
-
-  // From when it happened, not when it arrived: a retried delivery still
-  // goes out on time, or at once if that has passed.
-  const dueAt = new Date(
-    Math.max(Date.now(), Math.min(eventAt, Date.now()) + automation.delay_minutes * 60_000),
-  );
-
-  const { error: scheduleError } = await supabase.from('automation_runs').upsert(
-    {
-      automation_id: automation.id,
-      app_id: appId,
-      event: trigger,
-      revenuecat_id: revenuecatId,
-      source_event_id: event.id,
-      due_at: dueAt.toISOString(),
-    },
-    { onConflict: 'automation_id,source_event_id', ignoreDuplicates: true },
-  );
-  if (scheduleError) {
-    console.error('revenuecat-webhook: scheduling failed', scheduleError);
-    return errorResponse("Couldn't record the event", 500);
-  }
-
-  return json({ ok: true, plan, updated, scheduled: true, due_at: dueAt.toISOString() });
+  return json({
+    ok: true,
+    plan,
+    duplicate: result?.o_duplicate ?? false,
+    updated: result?.o_updated ?? 0,
+    skipped: result?.o_skipped ?? 0,
+    scheduled: result?.o_scheduled ?? false,
+    due_at: result?.o_due_at ?? null,
+    note: result?.o_note ?? null,
+  });
 });

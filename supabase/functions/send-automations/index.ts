@@ -290,7 +290,8 @@ Deno.serve(async (req) => {
         continue;
       }
       const row = (created as { o_query_id: string; o_message_id: string }[] | null)?.[0];
-      // Another call sent it first.
+      // Another call sent it first, or a later event (a trial cancelled
+      // while its welcome was translating) undid it in the meantime.
       if (!row) continue;
       sent += 1;
 
