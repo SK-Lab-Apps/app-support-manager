@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Trash2 } from "lucide-react";
+import { Check, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,14 @@ import {
   PLACEHOLDERS,
   renderTemplate,
 } from "@/lib/outreach";
-import type { AppUserRow, MessageTemplate } from "@/lib/types";
+import {
+  NO_INCENTIVES,
+  STORE_LISTING_MISSING,
+  hasStoreListing,
+  showsReviewButton,
+  storeLabel,
+} from "@/lib/review";
+import type { AppUserRow, MessageTemplate, StoreListing } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,11 +36,24 @@ interface SendResult {
   pushed: number;
 }
 
+/** Filled in when a review request starts empty; edited like any message. */
+const REVIEW_SUGGESTION =
+  "Hi {first_name}, thanks for using {app}! If you're enjoying it, would you leave us a rating? It only takes a moment and means a lot to us.";
+
+function audienceOf(users: AppUserRow[]): string {
+  return users.length === 1
+    ? (users[0]?.name ?? "1 user")
+    : `${users.length} users`;
+}
+
 /**
  * Writes a first message to the selected users. Each gets it as a new
  * conversation in their support chat, translated into their language, with
  * {first_name} / {name} / {app} filled in. It reaches the inbox when they
  * reply.
+ *
+ * As a review request, the message carries a store review button in the
+ * app, and anyone asked before is left out unless the admin says otherwise.
  */
 export function OutreachComposer({
   open,
@@ -64,10 +84,15 @@ export function OutreachComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SendResult | null>(null);
+  // Where review buttons point; null until loaded.
+  const [store, setStore] = useState<StoreListing | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [skipAsked, setSkipAsked] = useState(true);
 
   useEffect(() => {
     if (!open) return;
     setTemplatesLoaded(false);
+    setStore(null);
     void supabase
       .from("message_templates")
       .select("*")
@@ -76,22 +101,51 @@ export function OutreachComposer({
         setTemplates((data ?? []) as MessageTemplate[]);
         setTemplatesLoaded(true);
       });
-  }, [open, supabase]);
+    void supabase
+      .from("apps")
+      .select("app_store_id, play_store_package")
+      .eq("id", appId)
+      .maybeSingle()
+      .then(({ data }) =>
+        setStore({
+          app_store_id: data?.app_store_id ?? null,
+          play_store_package: data?.play_store_package ?? null,
+        }),
+      );
+  }, [open, appId, supabase]);
+
+  // Asked before, as a reply in a conversation or a send from here. Truthy
+  // checks: before the outreach_review_requests migration the view has no
+  // such columns, and nobody counts as asked.
+  const asked = recipients.filter((r) => Boolean(r.review_requested_at));
+  const askedOpened = asked.filter((r) => Boolean(r.review_opened_at)).length;
+  const sendTo =
+    reviewMode && skipAsked
+      ? recipients.filter((r) => !r.review_requested_at)
+      : recipients;
+  const reviewBlocked =
+    store === null
+      ? "Checking the store listing…"
+      : !hasStoreListing(store)
+        ? STORE_LISTING_MISSING
+        : null;
+  const withButton =
+    store === null ? 0 : sendTo.filter((r) => showsReviewButton(store, r)).length;
 
   const template = templates.find((t) => t.id === templateId) ?? null;
   const edited = template !== null && template.body !== body;
   const trimmed = body.trim();
-  const sample = recipients[0] ?? null;
-  const reachable = recipients.filter((r) => r.push_reachable).length;
+  const sample = sendTo[0] ?? null;
+  const reachable = sendTo.filter((r) => r.push_reachable).length;
   const languages = [
     ...new Set(
-      recipients
+      sendTo
         .map((r) => r.language)
         .filter((l): l is string => isTranslated(l) && l !== null),
     ),
   ];
   const usesName = /\{(first_name|name)\}/.test(body);
-  const nameless = recipients.filter((r) => !r.name?.trim()).length;
+  const nameless = sendTo.filter((r) => !r.name?.trim()).length;
 
   function reset() {
     setTemplateId(null);
@@ -101,6 +155,17 @@ export function OutreachComposer({
     setConfirming(false);
     setError(null);
     setResult(null);
+    setReviewMode(false);
+    setSkipAsked(true);
+  }
+
+  function toggleReview(next: boolean) {
+    setReviewMode(next);
+    setConfirming(false);
+    // Start a request from the suggestion, and don't leave it behind in
+    // a plain message.
+    if (next && trimmed === "") setBody(REVIEW_SUGGESTION);
+    if (!next && body === REVIEW_SUGGESTION) setBody("");
   }
 
   function handleOpenChange(next: boolean) {
@@ -190,11 +255,12 @@ export function OutreachComposer({
     setError(null);
     const response = await callFunction<SendResult>(supabase, "send-outreach", {
       app_id: appId,
-      revenuecat_ids: recipients.map((r) => r.revenuecat_id),
+      revenuecat_ids: sendTo.map((r) => r.revenuecat_id),
       body: trimmed,
       // A template edited before sending is no longer that template.
       template_id: template && !edited ? template.id : null,
       send_push: sendPush,
+      kind: reviewMode ? "review_request" : "text",
     });
     setSending(false);
     setConfirming(false);
@@ -206,8 +272,8 @@ export function OutreachComposer({
     onSent();
   }
 
-  const count = recipients.length;
-  const audience = count === 1 ? (sample?.name ?? "1 user") : `${count} users`;
+  const count = sendTo.length;
+  const audience = audienceOf(sendTo);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -216,13 +282,15 @@ export function OutreachComposer({
           <>
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold tracking-heading">
               <Check size={16} strokeWidth={2} className="text-status-resolved" />
-              Sent to {result.sent} {result.sent === 1 ? "user" : "users"}
+              {reviewMode ? "Review request sent" : "Sent"} to {result.sent}{" "}
+              {result.sent === 1 ? "user" : "users"}
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-secondary">
               {sendPush
                 ? `${result.pushed} push notification${result.pushed === 1 ? "" : "s"} delivered. `
                 : ""}
               Each conversation joins the inbox when the user replies.
+              {reviewMode && " Who taps through to the store shows in Sent."}
               {result.unknown > 0 &&
                 ` ${result.unknown} selected user${result.unknown === 1 ? " was" : "s were"} no longer known and skipped.`}
             </DialogDescription>
@@ -241,7 +309,10 @@ export function OutreachComposer({
         ) : (
           <>
             <DialogTitle className="text-lg font-semibold tracking-heading">
-              Message {audience}
+              {/* Everyone selected may have been left out; name who was picked. */}
+              {reviewMode
+                ? `Ask ${count > 0 ? audience : audienceOf(recipients)} for a review`
+                : `Message ${audience}`}
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-secondary">
               Starts a conversation in each user&apos;s support chat
@@ -401,6 +472,22 @@ export function OutreachComposer({
                 <p className="mt-1 whitespace-pre-wrap break-words text-sm text-primary">
                   {renderTemplate(trimmed, sample, appName)}
                 </p>
+                {reviewMode &&
+                  store !== null &&
+                  (showsReviewButton(store, sample) ? (
+                    // How the button looks in the app — not clickable here.
+                    <span
+                      aria-hidden
+                      className="mt-2 flex items-center justify-center gap-1.5 rounded-control bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg"
+                    >
+                      <Star size={11} strokeWidth={2} />
+                      {storeLabel(sample.platform)}
+                    </span>
+                  ) : (
+                    <p className="mt-1.5 text-2xs text-tertiary">
+                      Their app shows this without the button.
+                    </p>
+                  ))}
                 {usesName && nameless > 0 && (
                   <p className="mt-1.5 text-2xs text-tertiary">
                     {nameless} recipient{nameless === 1 ? " has" : "s have"} no
@@ -410,6 +497,86 @@ export function OutreachComposer({
                   </p>
                 )}
               </div>
+            )}
+
+            {/* Review request */}
+            <label
+              className={cn(
+                "mt-3 flex items-start gap-2.5",
+                !reviewMode && reviewBlocked !== null
+                  ? "cursor-not-allowed"
+                  : "cursor-pointer",
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={reviewMode}
+                onChange={(e) => toggleReview(e.target.checked)}
+                disabled={!reviewMode && reviewBlocked !== null}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--color-accent)] coarse:h-5 coarse:w-5"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span
+                  className={cn(
+                    "text-sm",
+                    !reviewMode && reviewBlocked !== null
+                      ? "text-tertiary"
+                      : "text-primary",
+                  )}
+                >
+                  Ask for a review
+                  {reviewMode && count > 0 && (
+                    <span className="tnum text-tertiary">
+                      {" "}
+                      · button shows for {withButton} of {count}
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs text-tertiary">
+                  {!reviewMode && reviewBlocked !== null ? (
+                    reviewBlocked
+                  ) : (
+                    <>
+                      Adds a &ldquo;Rate on the App Store / Google
+                      Play&rdquo; button under the message, for each
+                      user&apos;s store.
+                      {withButton < count &&
+                        " Older app versions, and users whose store isn't set up, get the text alone."}{" "}
+                      {NO_INCENTIVES}
+                    </>
+                  )}
+                </span>
+              </span>
+            </label>
+            {reviewMode && asked.length > 0 && (
+              <label className="mt-2 flex cursor-pointer items-start gap-2.5 pl-6 coarse:pl-[30px]">
+                <input
+                  type="checkbox"
+                  checked={skipAsked}
+                  onChange={(e) => {
+                    setSkipAsked(e.target.checked);
+                    setConfirming(false);
+                  }}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--color-accent)] coarse:h-5 coarse:w-5"
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm text-primary">
+                    Leave out{" "}
+                    {asked.length === recipients.length
+                      ? asked.length === 1
+                        ? "this user — already asked"
+                        : `all ${asked.length} — already asked`
+                      : `the ${asked.length} already asked`}
+                  </span>
+                  <span className="text-xs text-tertiary">
+                    {askedOpened > 0 &&
+                      `${askedOpened} of them opened the store. `}
+                    {skipAsked && count === 0
+                      ? "That's everyone selected — untick to ask again."
+                      : "They've had a review request before, in a reply or a send."}
+                  </span>
+                </span>
+              </label>
             )}
 
             {/* Push */}

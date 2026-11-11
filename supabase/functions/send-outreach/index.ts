@@ -13,6 +13,12 @@
 // These conversations stay out of the inbox until the user replies (see
 // the users_and_outreach migration). Push is opt-in per send: Apple's
 // guidelines treat unsolicited promotional pushes as off-limits.
+//
+// `kind: 'review_request'` sends a review request: the same message with a
+// store button under it in SDK 0.4+ (older builds show the text alone).
+// It needs the app's store listing — without one the button has nowhere
+// to go. Who to leave out (anyone asked before, say) is the dashboard's
+// call; every user named here gets it.
 
 import { z } from 'npm:zod@3.23.8';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -40,6 +46,7 @@ const BodySchema = z.object({
   body: z.string().trim().min(1).max(MESSAGE_MAX),
   template_id: z.string().uuid().nullish(),
   send_push: z.boolean(),
+  kind: z.enum(['text', 'review_request']).default('text'),
 });
 
 // ---------- recipients ----------
@@ -155,10 +162,20 @@ Deno.serve(async (req) => {
 
   const { data: app } = await supabase
     .from('apps')
-    .select('id, name')
+    .select('id, name, app_store_id, play_store_package')
     .eq('id', input.app_id)
     .maybeSingle();
   if (!app) return errorResponse('App not found', 404);
+  if (
+    input.kind === 'review_request' &&
+    app.app_store_id === null &&
+    app.play_store_package === null
+  ) {
+    return errorResponse(
+      "Add this app's store listing before sending a review request",
+      422,
+    );
+  }
 
   let recipients: Recipient[];
   try {
@@ -219,6 +236,7 @@ Deno.serve(async (req) => {
         body_translated: translatedBody,
         translation_status: status,
       })),
+      p_kind: input.kind,
     },
   );
 

@@ -14,6 +14,12 @@ import { createClient } from "@/lib/supabase/client";
 import { callFunction } from "@/lib/functions";
 import { isTranslated, languageName } from "@/lib/languages";
 import { renderTemplate } from "@/lib/outreach";
+import {
+  NO_INCENTIVES,
+  STORE_LISTING_MISSING,
+  storeLabel,
+  storeSetUpFor,
+} from "@/lib/review";
 import type {
   MessageKind,
   MessageRow,
@@ -65,21 +71,6 @@ interface ReviewTarget {
    * null when we can't tell — free users aren't in the directory.
    */
   rendersButton: boolean | null;
-}
-
-function storeLabel(platform: StorePlatform | null): string {
-  if (platform === "ios") return "Rate on the App Store";
-  if (platform === "android") return "Rate on Google Play";
-  return "Rate in the store";
-}
-
-/** Whether this user's store is set up — any store when we can't tell. */
-function storeReady(target: ReviewTarget | null): boolean {
-  if (!target) return false;
-  const { store, platform } = target;
-  if (platform === "ios") return store.app_store_id !== null;
-  if (platform === "android") return store.play_store_package !== null;
-  return store.app_store_id !== null || store.play_store_package !== null;
 }
 
 /**
@@ -322,8 +313,8 @@ export function ThreadPanel({
   const reviewBlocked =
     reviewTarget === null
       ? "Checking the store listing…"
-      : !storeReady(reviewTarget)
-        ? "Add this app's store listing first (the star in the app's header)"
+      : !storeSetUpFor(reviewTarget.store, reviewTarget.platform)
+        ? STORE_LISTING_MISSING
         : askedSinceUserWrote
           ? "Already asked — wait until they write again"
           : null;
@@ -694,8 +685,7 @@ export function ThreadPanel({
                 {reviewTarget?.rendersButton === false
                   ? "This user's app version shows the text without the button. "
                   : ""}
-                Don&apos;t offer anything in exchange — Apple and Google
-                don&apos;t allow it.
+                {NO_INCENTIVES}
               </p>
             )}
             <textarea

@@ -78,6 +78,12 @@ export interface AppUserRow {
   push_status: PushPermissionStatus | null;
   push_reachable: boolean;
   conversation_count: number;
+  /** Which store a review request opens; null before SDK 0.4. */
+  platform: StorePlatform | null;
+  /** The latest review request sent to this user, as a reply or a send. */
+  review_requested_at: string | null;
+  /** The latest tap through to the store from one. */
+  review_opened_at: string | null;
 }
 
 export interface MessageTemplate {
@@ -106,6 +112,10 @@ export interface BroadcastSummary {
   recipient_names: string[];
   /** Set when an automation sent it rather than an admin. */
   automation_event: AutomationEvent | null;
+  /** 'review_request': each message carried a store review button. */
+  kind: MessageKind;
+  /** Recipients who tapped through to the store from a review request. */
+  review_opened_count: number;
 }
 
 /** Row shape of the `broadcast_recipients` view. */
@@ -115,6 +125,8 @@ export interface BroadcastRecipient {
   user_name: string;
   read: boolean;
   replied: boolean;
+  /** Tapped through to the store from a review request in this conversation. */
+  review_opened: boolean;
 }
 
 /** The subscription moments, from RevenueCat, an automation can follow. */

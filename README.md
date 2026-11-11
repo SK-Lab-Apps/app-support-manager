@@ -135,7 +135,7 @@ The new key is shown once, like at registration. Only one old key is kept: rotat
 Each app has **Inbox**, **Users**, **Sent** and **Automations** tabs.
 
 - **Users** lists the app's paying and trial users — name, plan (PRO, Trial, or either one cancelled), language, app version, push status, last seen — filterable by plan and push, newest first. Select some (or all shown, up to 1,000) and **Message** them. Free users aren't stored: they're never messaged first, and a user whose trial or subscription lapses leaves the list the next time the SDK reports them. Their conversations stay in the inbox like anyone's.
-- The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps (see Templates below).
+- The composer takes a custom message or a saved template, with `{first_name}`, `{name}` and `{app}` filled in per user. It can also send a review request (see Review requests below). A user with no name on record loses the placeholder and the space before it, so `Hi {first_name},` reads `Hi,`. Templates are shared across apps (see Templates below).
 - Each user gets the message as a new conversation in their support chat, translated into their language: the template is translated once per language with the placeholders intact, then filled in. A language that fails to translate is sent in English and picked up by the translation sweep.
 - These conversations stay out of the inbox, the open counts and the response-time stats until the user replies; then they appear like any other.
 - Push is a per-send choice, off by default — without it users see the badge on the support button. Apple's guidelines don't allow promotional pushes unless users opted in to them, so keep push for service messages.
@@ -158,13 +158,13 @@ Tick conversations in an app's inbox (or all shown, with the header box) and **D
 
 ### Review requests
 
-A reply can carry a **Rate on the App Store / Google Play** button: in a conversation, turn on **Review request** in the composer (it pre-fills a suggested message you can edit) and send. Set up once per app with the star in the app's header — the App Store ID (the number in `apps.apple.com/app/id…`) and the Google Play package.
+A message can carry a **Rate on the App Store / Google Play** button, sent two ways. Set up once per app with the star in the app's header — the App Store ID (the number in `apps.apple.com/app/id…`) and the Google Play package.
 
-- The text is an ordinary reply — translated, delivered and pushed like any other. SDK 0.4+ adds the button for the user's platform, opening the store app's write-a-review page (or its web page if the store app won't open). SDKs before 0.4 show the text alone, and the composer says so for those users.
-- The button is offered only when the user's store is set up — by the platform their SDK reports, or either store for users on older SDKs.
-- One request per stretch of conversation: after asking, the button waits until the user writes again.
-- When the user taps through, the dashboard shows **Opened the store** under the request. That's a tap, not a review — the stores don't report who reviewed.
-- It is a link to the review page, not an in-app rating prompt, and nothing may be offered in exchange: Apple and Google both forbid incentivized reviews, and the composer repeats this.
+- **As a reply**: in a conversation, turn on **Review request** in the composer (it pre-fills a suggested message you can edit) and send. The button is offered only when the user's store is set up — by the platform their SDK reports, or either store for users on older SDKs. One request per stretch of conversation: after asking, the button waits until the user writes again.
+- **First, from the Users tab**: select users, **Message**, and tick **Ask for a review** (it pre-fills a suggested message with `{first_name}` and `{app}`). Each user gets it as a new conversation, like any send from there — translated, out of the inbox until they reply, push optional. The composer says how many of them will see the button, previews it for the first, and leaves out anyone already asked — as a reply or a send — unless you untick that. It needs at least one store set up.
+- The text is an ordinary message — translated, delivered and pushed like any other. SDK 0.4+ adds the button for the user's platform, opening the store app's write-a-review page (or its web page if the store app won't open). SDKs before 0.4, and users whose platform's store isn't set up, see the text alone; both composers say so.
+- When the user taps through, the conversation shows **Opened the store** under the request, and the Sent log counts it for a send (**% opened the store**, and a star by each user who did). That's a tap, not a review — the stores don't report who reviewed.
+- It is a link to the review page, not an in-app rating prompt, and nothing may be offered in exchange: Apple and Google both forbid incentivized reviews, and both composers repeat this.
 
 ### Cancellations
 

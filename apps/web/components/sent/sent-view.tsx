@@ -1,6 +1,15 @@
 "use client";
 
-import { BellRing, Check, CornerUpLeft, RotateCw, Send, Trash2, Zap } from "lucide-react";
+import {
+  BellRing,
+  Check,
+  CornerUpLeft,
+  RotateCw,
+  Send,
+  Star,
+  Trash2,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { automationLabel } from "@/lib/automations";
@@ -47,7 +56,7 @@ function Recipients({ send }: { send: BroadcastSummary }) {
     setError(false);
     const { data, error: fetchError } = await supabase
       .from("broadcast_recipients")
-      .select("query_id, revenuecat_id, user_name, read, replied")
+      .select("query_id, revenuecat_id, user_name, read, replied, review_opened")
       .eq("broadcast_id", send.id)
       .order("user_name")
       .limit(1000);
@@ -116,6 +125,14 @@ function Recipients({ send }: { send: BroadcastSummary }) {
                 <span className="min-w-0 flex-1 truncate text-primary">
                   {r.user_name}
                 </span>
+                {r.review_opened && (
+                  <span
+                    className="inline-flex shrink-0 text-status-resolved"
+                    title="Opened the store"
+                  >
+                    <Star size={11} strokeWidth={1.5} aria-label="Opened the store" />
+                  </span>
+                )}
                 {r.replied ? (
                   <span className="inline-flex shrink-0 items-center gap-1 text-status-resolved">
                     <CornerUpLeft size={11} strokeWidth={1.5} />
@@ -295,6 +312,15 @@ export function SentView({ appId }: { appId: string }) {
                     <span>by {b.sent_by_name}</span>
                   )}
                   {b.template_name && <span>· {b.template_name}</span>}
+                  {b.kind === "review_request" && (
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title="Each message carried a store review button"
+                    >
+                      <Star size={11} strokeWidth={1.5} />
+                      Review request
+                    </span>
+                  )}
                   {b.send_push && (
                     <span className="inline-flex items-center gap-1" title="Sent with a push notification">
                       <BellRing size={11} strokeWidth={1.5} />
@@ -311,6 +337,14 @@ export function SentView({ appId }: { appId: string }) {
                     <span title={`${b.replied_count} replied — those conversations are in the inbox`}>
                       {percent(b.replied_count, b.recipient_count)} replied
                     </span>
+                    {b.kind === "review_request" && (
+                      <span
+                        title={`${b.review_opened_count} tapped through to the store — whether they left a review, the store doesn't say`}
+                      >
+                        {percent(b.review_opened_count, b.recipient_count)} opened
+                        the store
+                      </span>
+                    )}
                   </span>
                 </div>
               </li>
