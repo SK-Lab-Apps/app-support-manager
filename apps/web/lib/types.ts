@@ -84,6 +84,10 @@ export interface AppUserRow {
   review_requested_at: string | null;
   /** The latest tap through to the store from one. */
   review_opened_at: string | null;
+  /** When their current stint on PRO (cancelled or not) began. */
+  pro_since: string | null;
+  /** PRO, not cancelled, for more than 3 days. */
+  review_eligible: boolean;
 }
 
 export interface MessageTemplate {
@@ -129,13 +133,17 @@ export interface BroadcastRecipient {
   review_opened: boolean;
 }
 
-/** The subscription moments, from RevenueCat, an automation can follow. */
+/**
+ * What an automation can follow: the subscription moments RevenueCat
+ * reports, and a user becoming review eligible.
+ */
 export type AutomationEvent =
   | 'trial_started'
   | 'pro_started'
   | 'trial_converted'
   | 'trial_cancelled'
-  | 'pro_cancelled';
+  | 'pro_cancelled'
+  | 'review_eligible';
 
 /** Row shape of the `automation_list` view. */
 export interface AutomationRow {
@@ -153,6 +161,8 @@ export interface AutomationRow {
   sent_count: number;
   read_count: number;
   replied_count: number;
+  /** Recipients who tapped through to the store; review_eligible only. */
+  review_opened_count: number;
 }
 
 export interface MessageRow {

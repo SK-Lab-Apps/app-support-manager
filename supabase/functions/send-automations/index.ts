@@ -1,7 +1,10 @@
 // POST /functions/v1/send-automations
 // Sends the automated messages that are due. Called every minute by the
 // `send-automations` pg_cron job, and only when one is (see the automations
-// migration); revenuecat-webhook is what schedules them.
+// migration). revenuecat-webhook schedules the subscription ones; the
+// `schedule-review-requests` job queues review_eligible runs, which go out
+// as review requests (send_automation_run decides, and skips a user no
+// longer eligible or already asked).
 //
 // Each goes out like a message from the Users tab: a new conversation in the
 // user's support chat with the automation's text, {first_name}, {name} and
@@ -36,10 +39,16 @@ type AutomationEvent =
   | 'pro_started'
   | 'trial_converted'
   | 'trial_cancelled'
-  | 'pro_cancelled';
+  | 'pro_cancelled'
+  | 'review_eligible';
 
 /** Events that leave the user paying; the others leave them on a trial. */
-const PAID_EVENTS: AutomationEvent[] = ['pro_started', 'trial_converted', 'pro_cancelled'];
+const PAID_EVENTS: AutomationEvent[] = [
+  'pro_started',
+  'trial_converted',
+  'pro_cancelled',
+  'review_eligible',
+];
 
 interface Run {
   id: string;

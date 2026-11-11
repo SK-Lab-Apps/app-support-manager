@@ -40,6 +40,16 @@ export function showsReviewButton(
   return user.sdk_version !== null && storeSetUpFor(store, user.platform);
 }
 
+/**
+ * Days on PRO, not cancelled, before a user is review eligible. For copy
+ * only: public.is_review_eligible is the rule.
+ */
+export const REVIEW_ELIGIBLE_DAYS = 3;
+
+/** Filled in when a review request starts empty; edited like any message. */
+export const REVIEW_SUGGESTION =
+  "Hi {first_name}, thanks for using {app}! If you're enjoying it, would you leave us a rating? It only takes a moment and means a lot to us.";
+
 export const STORE_LISTING_MISSING =
   "Add this app's store listing first (the star in the app's header)";
 

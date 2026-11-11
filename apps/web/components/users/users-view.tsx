@@ -9,7 +9,11 @@ import type { AppUserRow, PlanFilter } from "@/lib/types";
 import { absoluteTime, cn, relativeTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { LanguageChip, PlanChip } from "@/components/ui/chips";
+import {
+  LanguageChip,
+  PlanChip,
+  ReviewEligibleChip,
+} from "@/components/ui/chips";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSelect } from "@/components/ui/filter-select";
 import { LoadingBar } from "@/components/ui/loading-bar";
@@ -21,6 +25,7 @@ import {
 import { OutreachComposer } from "@/components/users/outreach-composer";
 
 type PushFilter = "all" | "reachable";
+type ReviewFilter = "all" | "eligible";
 
 /** Commas and parentheses delimit PostgREST `or` filters. */
 function searchTerm(raw: string): string {
@@ -76,6 +81,7 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
   const latestRequest = useRef(0);
   const [planFilter, setPlanFilter] = useState<PlanFilter>("all");
   const [pushFilter, setPushFilter] = useState<PushFilter>("all");
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -94,6 +100,7 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
       .eq("app_id", appId);
     if (planFilter !== "all") builder = builder.eq("plan", planFilter);
     if (pushFilter === "reachable") builder = builder.eq("push_reachable", true);
+    if (reviewFilter === "eligible") builder = builder.eq("review_eligible", true);
     if (debouncedSearch) {
       builder = builder.or(
         `name.ilike.%${debouncedSearch}%,revenuecat_id.ilike.%${debouncedSearch}%`,
@@ -108,7 +115,7 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
     if (fetchError) return;
     setRows((data ?? []) as AppUserRow[]);
     setTotal(count ?? null);
-  }, [appId, planFilter, pushFilter, debouncedSearch, supabase]);
+  }, [appId, planFilter, pushFilter, reviewFilter, debouncedSearch, supabase]);
 
   useEffect(() => {
     setRefreshing(true);
@@ -148,7 +155,10 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
   }
 
   const filtersActive =
-    planFilter !== "all" || pushFilter !== "all" || debouncedSearch !== "";
+    planFilter !== "all" ||
+    pushFilter !== "all" ||
+    reviewFilter !== "all" ||
+    debouncedSearch !== "";
   const truncated = total !== null && rows !== null && total > rows.length;
 
   return (
@@ -195,6 +205,15 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
             options={[
               { value: "all", label: "Any push status" },
               { value: "reachable", label: "Push on" },
+            ]}
+          />
+          <FilterSelect
+            label="Filter by review eligibility"
+            value={reviewFilter}
+            onChange={setReviewFilter}
+            options={[
+              { value: "all", label: "Any review status" },
+              { value: "eligible", label: "Review eligible" },
             ]}
           />
         </div>
@@ -320,13 +339,18 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
                       aria-label={`Select ${user.name ?? user.revenuecat_id}`}
                     />
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <span
-                        className={cn(
-                          "truncate text-sm",
-                          user.name ? "text-primary" : "italic text-tertiary",
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={cn(
+                            "truncate text-sm",
+                            user.name ? "text-primary" : "italic text-tertiary",
+                          )}
+                        >
+                          {user.name ?? "No name"}
+                        </span>
+                        {user.review_eligible && (
+                          <ReviewEligibleChip className="shrink-0" />
                         )}
-                      >
-                        {user.name ?? "No name"}
                       </span>
                       <span className="tnum truncate text-2xs text-tertiary">
                         {user.revenuecat_id}

@@ -36,6 +36,7 @@ import {
   LanguageChip,
   PlanChip,
   PushStatusChip,
+  ReviewEligibleChip,
   StatusIndicator,
 } from "@/components/ui/chips";
 import { FilterSelect } from "@/components/ui/filter-select";
@@ -71,6 +72,8 @@ interface ReviewTarget {
    * null when we can't tell — free users aren't in the directory.
    */
   rendersButton: boolean | null;
+  /** PRO, not cancelled, for more than 3 days. */
+  reviewEligible: boolean;
 }
 
 /**
@@ -184,8 +187,8 @@ export function ThreadPanel({
         .eq("id", row.app_id)
         .maybeSingle(),
       supabase
-        .from("app_users")
-        .select("platform, sdk_version")
+        .from("app_user_list")
+        .select("platform, sdk_version, review_eligible")
         .eq("app_id", row.app_id)
         .eq("revenuecat_id", row.revenuecat_id)
         .maybeSingle(),
@@ -197,6 +200,7 @@ export function ThreadPanel({
       },
       platform: (user?.platform as StorePlatform | null) ?? null,
       rendersButton: user ? Boolean(user.sdk_version) : null,
+      reviewEligible: Boolean(user?.review_eligible),
     });
   }, [supabase, row.app_id, row.revenuecat_id]);
 
@@ -466,6 +470,9 @@ export function ThreadPanel({
             {row.user_name}
           </span>
           <PlanChip plan={row.plan} className="shrink-0" />
+          {reviewTarget?.reviewEligible && (
+            <ReviewEligibleChip className="shrink-0" />
+          )}
           <span className="tnum hidden truncate text-2xs text-tertiary xs:block">
             {row.revenuecat_id}
           </span>

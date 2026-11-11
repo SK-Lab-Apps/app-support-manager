@@ -1,5 +1,6 @@
 "use client";
 
+import { Star } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -8,10 +9,23 @@ import {
   DEFAULT_DELAY_MINUTES,
   DELAY_OPTIONS,
   formatDelay,
+  isReviewAutomation,
 } from "@/lib/automations";
 import { PLACEHOLDERS, renderTemplate } from "@/lib/outreach";
+import {
+  NO_INCENTIVES,
+  REVIEW_SUGGESTION,
+  STORE_LISTING_MISSING,
+  hasStoreListing,
+  storeLabel,
+} from "@/lib/review";
 import { createClient } from "@/lib/supabase/client";
-import type { AutomationEvent, AutomationRow, MessageTemplate } from "@/lib/types";
+import type {
+  AutomationEvent,
+  AutomationRow,
+  MessageTemplate,
+  StoreListing,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,17 +69,51 @@ export function AutomationEditorDialog({
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  // Where a review request's button points; null until loaded.
+  const [store, setStore] = useState<StoreListing | null>(null);
 
   const info = AUTOMATION_EVENTS.find((e) => e.event === event);
+  const review = isReviewAutomation(event);
 
-  // Each open starts from the message as saved.
+  // Each open starts from the message as saved, or a new review request
+  // from the suggestion.
   useEffect(() => {
     if (!open) return;
-    setBody(automation?.body ?? "");
+    setBody(automation?.body ?? (review ? REVIEW_SUGGESTION : ""));
     setDelay(automation?.delay_minutes ?? DEFAULT_DELAY_MINUTES);
     setSendPush(automation?.send_push ?? false);
     setError(false);
-  }, [open, automation]);
+  }, [open, automation, review]);
+
+  useEffect(() => {
+    if (!open || !review) return;
+    setStore(null);
+    let cancelled = false;
+    void supabase
+      .from("apps")
+      .select("app_store_id, play_store_package")
+      .eq("id", appId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setStore({
+          app_store_id: data?.app_store_id ?? null,
+          play_store_package: data?.play_store_package ?? null,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, review, appId, supabase]);
+
+  // Nothing is sent without somewhere for the button to go.
+  const reviewBlocked = !review
+    ? null
+    : store === null
+      ? "Checking the store listing…"
+      : !hasStoreListing(store)
+        ? STORE_LISTING_MISSING
+        : null;
 
   useEffect(() => {
     if (!open) return;
@@ -134,12 +182,21 @@ export function AutomationEditorDialog({
           {info?.label ?? "Automated"} message
         </DialogTitle>
         <DialogDescription className="mt-1 text-sm text-secondary">
-          {info?.description} It goes out {formatDelay(delay)} later as a new
+          {info?.description} It goes out {formatDelay(delay)}{" "}
+          {review ? "after they become eligible" : "later"} as a new
           conversation in their support chat, translated into their language.
           {automation
             ? " Changes apply to everyone it hasn't gone to yet."
             : ""}
         </DialogDescription>
+        {review && (
+          <p className="mt-2 text-xs leading-relaxed text-tertiary">
+            It follows users who become eligible while it&apos;s on. To ask
+            the ones already eligible, filter the Users tab by{" "}
+            <span className="text-secondary">Review eligible</span> and send
+            them a review request. {NO_INCENTIVES}
+          </p>
+        )}
 
         <form
           className="mt-4 flex flex-col gap-3"
@@ -226,6 +283,22 @@ export function AutomationEditorDialog({
               <p className="mt-1 whitespace-pre-wrap break-words text-sm text-primary">
                 {renderTemplate(trimmed, SAMPLE_USER, appName)}
               </p>
+              {review && store !== null && hasStoreListing(store) && (
+                // How the button looks in the app — not clickable here.
+                <span
+                  aria-hidden
+                  className="mt-2 flex items-center justify-center gap-1.5 rounded-control bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg"
+                >
+                  <Star size={11} strokeWidth={2} />
+                  {storeLabel(
+                    store.app_store_id !== null
+                      ? "ios"
+                      : store.play_store_package !== null
+                        ? "android"
+                        : null,
+                  )}
+                </span>
+              )}
               {/\{(first_name|name)\}/.test(trimmed) && (
                 <p className="mt-1.5 text-2xs text-tertiary">
                   For a user with no name on record the name is left out —
@@ -272,6 +345,9 @@ export function AutomationEditorDialog({
               Couldn&apos;t save — try again
             </p>
           )}
+          {reviewBlocked && store !== null && (
+            <p className="text-xs text-status-danger">{reviewBlocked}</p>
+          )}
 
           <div className="mt-1 flex justify-end gap-2">
             <Button
@@ -285,7 +361,15 @@ export function AutomationEditorDialog({
             <Button
               type="submit"
               variant="primary"
-              disabled={saving || !trimmed || unchanged}
+              // Turning one on needs the listing; an edit to one already on
+              // can still be saved (its sends are skipped until there is one).
+              disabled={
+                saving ||
+                !trimmed ||
+                unchanged ||
+                (automation === null && reviewBlocked !== null)
+              }
+              title={(automation === null && reviewBlocked) || undefined}
             >
               {saving ? "Saving…" : automation ? "Save changes" : "Turn on"}
             </Button>

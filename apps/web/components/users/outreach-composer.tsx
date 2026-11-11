@@ -13,6 +13,7 @@ import {
 } from "@/lib/outreach";
 import {
   NO_INCENTIVES,
+  REVIEW_SUGGESTION,
   STORE_LISTING_MISSING,
   hasStoreListing,
   showsReviewButton,
@@ -35,10 +36,6 @@ interface SendResult {
   unknown: number;
   pushed: number;
 }
-
-/** Filled in when a review request starts empty; edited like any message. */
-const REVIEW_SUGGESTION =
-  "Hi {first_name}, thanks for using {app}! If you're enjoying it, would you leave us a rating? It only takes a moment and means a lot to us.";
 
 function audienceOf(users: AppUserRow[]): string {
   return users.length === 1

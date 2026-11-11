@@ -1,8 +1,10 @@
-// Automated messages: one per app per subscription event, sent a set delay
-// after RevenueCat reports it. The events and their rules live in
-// supabase/functions/revenuecat-webhook/index.ts; keep the labels here in
-// step with what it schedules.
+// Automated messages: one per app per event, sent a set delay after it.
+// The subscription events and their rules live in
+// supabase/functions/revenuecat-webhook/index.ts; review_eligible is
+// queued by the database (see the review_eligible migration). Keep the
+// labels here in step with what they schedule.
 
+import { REVIEW_ELIGIBLE_DAYS } from '@/lib/review';
 import type { AutomationEvent } from '@/lib/types';
 
 export const AUTOMATION_EVENTS: {
@@ -37,7 +39,17 @@ export const AUTOMATION_EVENTS: {
     description:
       'A subscriber turns off auto-renew. They keep access until the period ends.',
   },
+  {
+    event: 'review_eligible',
+    label: 'Review eligible',
+    description: `A PRO user, not cancelled, passes ${REVIEW_ELIGIBLE_DAYS} days on PRO. Sent as a review request, with a store button, to users who weren't asked before.`,
+  },
 ];
+
+/** Sent as a review request rather than plain text. */
+export function isReviewAutomation(event: AutomationEvent | null): boolean {
+  return event === 'review_eligible';
+}
 
 export function automationLabel(event: AutomationEvent): string {
   return AUTOMATION_EVENTS.find((e) => e.event === event)?.label ?? event;

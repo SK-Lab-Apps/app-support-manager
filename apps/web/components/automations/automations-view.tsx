@@ -2,7 +2,11 @@
 
 import { BellRing, Pause, Pencil, Play, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AUTOMATION_EVENTS, formatDelay } from "@/lib/automations";
+import {
+  AUTOMATION_EVENTS,
+  formatDelay,
+  isReviewAutomation,
+} from "@/lib/automations";
 import { createClient } from "@/lib/supabase/client";
 import type { AutomationEvent, AutomationRow } from "@/lib/types";
 import { absoluteTime, cn, relativeTime } from "@/lib/utils";
@@ -98,7 +102,8 @@ export function AutomationsView({
           Each message starts a conversation in the user&apos;s support chat,
           translated into their language, a set time after RevenueCat reports
           the event. It joins your inbox when they reply. Needs the app&apos;s
-          RevenueCat webhook.
+          RevenueCat webhook — except Review eligible, which follows the plan
+          the app reports (the webhook is what tells it who cancelled).
         </p>
       </div>
 
@@ -174,6 +179,14 @@ export function AutomationsView({
                             <span title={`${row.replied_count} replied — those conversations are in the inbox`}>
                               {percent(row.replied_count, row.sent_count)} replied
                             </span>
+                            {isReviewAutomation(event) && (
+                              <span
+                                title={`${row.review_opened_count} tapped through to the store — whether they left a review, the store doesn't say`}
+                              >
+                                {percent(row.review_opened_count, row.sent_count)}{" "}
+                                opened the store
+                              </span>
+                            )}
                           </span>
                         </div>
                         {toggleError === row.id && (

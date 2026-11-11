@@ -7,9 +7,11 @@ import {
   Lightbulb,
   MessageSquare,
   MessagesSquare,
+  Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { languageName } from '@/lib/languages';
+import { REVIEW_ELIGIBLE_DAYS } from '@/lib/review';
 import {
   QUERY_TYPE_LABEL,
   type PushSubscriptionRow,
@@ -195,6 +197,29 @@ export function PlanChip({
       )}
     >
       {PLAN_LABEL[plan]}
+    </span>
+  );
+}
+
+/**
+ * PRO, not cancelled, for long enough to be asked for a review. Outlined
+ * in the accent, so it reads as a note on the PRO chip beside it.
+ */
+export function ReviewEligibleChip({
+  className,
+}: {
+  className?: string;
+}) {
+  return (
+    <span
+      title={`On PRO, not cancelled, for more than ${REVIEW_ELIGIBLE_DAYS} days`}
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-[4px] border border-accent-muted px-1 py-px text-[10px] font-medium text-accent',
+        className,
+      )}
+    >
+      <Star size={9} strokeWidth={2} />
+      Review eligible
     </span>
   );
 }
