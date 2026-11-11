@@ -1,6 +1,14 @@
 "use client";
 
-import { Bell, BellOff, MessageSquarePlus, RotateCw, Search, Users } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  MessageSquarePlus,
+  RotateCw,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isTranslated } from "@/lib/languages";
@@ -22,6 +30,7 @@ import {
   TableSkeleton,
   ToolbarSkeleton,
 } from "@/components/ui/skeleton";
+import { DeleteUsersDialog } from "@/components/users/delete-users-dialog";
 import { OutreachComposer } from "@/components/users/outreach-composer";
 
 type PushFilter = "all" | "reachable";
@@ -86,6 +95,7 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [composerOpen, setComposerOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm(search)), 250);
@@ -243,8 +253,17 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
           </button>
           <Button
             size="sm"
+            variant="ghost"
+            className="ml-auto hover:text-status-danger"
+            onClick={() => setDeleteOpen(true)}
+            title="Delete them and their data from this project"
+          >
+            <Trash2 size={13} strokeWidth={1.5} />
+            Delete
+          </Button>
+          <Button
+            size="sm"
             variant="primary"
-            className="ml-auto"
             onClick={() => setComposerOpen(true)}
           >
             <MessageSquarePlus size={13} strokeWidth={1.5} />
@@ -398,6 +417,18 @@ export function UsersView({ appId, appName }: { appId: string; appName: string }
         onSent={() => {
           setSelected(new Set());
           void fetchRows();
+        }}
+      />
+      <DeleteUsersDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        appId={appId}
+        users={selectedRows}
+        onDeleted={(ids) => {
+          const gone = new Set(ids);
+          setRows((prev) => (prev ?? []).filter((r) => !gone.has(r.revenuecat_id)));
+          setTotal((prev) => (prev === null ? prev : Math.max(0, prev - ids.length)));
+          setSelected(new Set());
         }}
       />
     </div>

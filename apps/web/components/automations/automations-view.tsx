@@ -12,6 +12,7 @@ import type { AutomationEvent, AutomationRow } from "@/lib/types";
 import { absoluteTime, cn, relativeTime } from "@/lib/utils";
 import { AutomationEditorDialog } from "@/components/automations/automation-editor-dialog";
 import { DeleteAutomationDialog } from "@/components/automations/delete-automation-dialog";
+import { ExpiredUserCleanup } from "@/components/automations/expired-user-cleanup";
 import { TemplateText } from "@/components/template-text";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -244,6 +245,14 @@ export function AutomationsView({
               );
             })}
           </ul>
+        )}
+        {!error && rows !== null && (
+          <>
+            <h2 className="border-b border-border bg-bg px-3 pb-1.5 pt-4 text-2xs uppercase tracking-wide text-tertiary md:px-4">
+              Data cleanup
+            </h2>
+            <ExpiredUserCleanup appId={appId} />
+          </>
         )}
       </div>
 

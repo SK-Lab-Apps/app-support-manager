@@ -81,8 +81,9 @@ function planAfter(type: string, periodType: string | null | undefined): StoredP
     case 'INITIAL_PURCHASE':
       return trial ? 'trial' : 'pro';
     default:
-      // EXPIRATION included: the user leaves the directory when their app
-      // next reports them free, as anyone does.
+      // EXPIRATION included: recording it takes the user out of the
+      // directory and notes when they expired, for the automatic deletion
+      // (see the user_deletion migration's note_subscription_expiry).
       return null;
   }
 }

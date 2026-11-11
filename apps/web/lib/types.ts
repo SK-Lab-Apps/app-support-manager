@@ -165,6 +165,20 @@ export interface AutomationRow {
   review_opened_count: number;
 }
 
+/** Row shape of the `expired_user_cleanup` view: one per app. */
+export interface ExpiredUserCleanupRow {
+  app_id: string;
+  /** Whether expired users are deleted automatically. */
+  enabled: boolean;
+  /** Expired and on record, not deleted yet. */
+  expired_count: number;
+  /** Expired more than 7 days ago. */
+  due_count: number;
+  /** Deleted by the automation so far. */
+  deleted_count: number;
+  last_deleted_at: string | null;
+}
+
 export interface MessageRow {
   id: string;
   query_id: string;

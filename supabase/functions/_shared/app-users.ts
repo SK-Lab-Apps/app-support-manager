@@ -30,7 +30,8 @@ export function planFromIsPaid(isPaid: boolean): UserPlan {
 /**
  * Records that this user was just seen, with whatever was reported. A free
  * user isn't stored, and one whose trial or subscription lapsed leaves the
- * directory. Fields left undefined keep their stored value; first_seen_at is
+ * directory — which a trigger notes in expired_users, for the automatic
+ * deletion; coming back on a plan clears it. Fields left undefined keep their stored value; first_seen_at is
  * set only on insert. Best effort — the directory must never fail a user's
  * request.
  */
